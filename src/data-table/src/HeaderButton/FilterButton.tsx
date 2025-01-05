@@ -1,20 +1,20 @@
-import { h, defineComponent, ref, computed, PropType, inject } from 'vue'
-import { FilterIcon } from '../../../_internal/icons'
-import { NBaseIcon } from '../../../_internal'
-import { NPopover } from '../../../popover'
-import RenderFilter from './RenderFilter'
-import NDataTableFilterMenu from './FilterMenu'
-import {
+import type {
   ColumnKey,
-  dataTableInjectionKey,
   FilterOption,
   FilterOptionValue,
   FilterState,
   TableBaseColumn
 } from '../interface'
+import { computed, defineComponent, h, inject, type PropType, ref } from 'vue'
+import { NBaseIcon } from '../../../_internal'
+import { FilterIcon } from '../../../_internal/icons'
 import { useConfig } from '../../../_mixins'
+import { NPopover } from '../../../popover'
+import { dataTableInjectionKey } from '../interface'
+import NDataTableFilterMenu from './FilterMenu'
+import RenderFilter from './RenderFilter'
 
-function createFilterState (
+function createFilterState(
   currentFilterState: FilterState,
   columnKey: ColumnKey,
   mergedFilterValue: FilterOptionValue | FilterOptionValue[] | null
@@ -36,15 +36,17 @@ export default defineComponent({
       default: () => []
     }
   },
-  setup (props) {
-    const { NConfigProvider } = useConfig()
+  setup(props) {
+    const { mergedComponentPropsRef } = useConfig()
     const {
       mergedThemeRef,
       mergedClsPrefixRef,
       mergedFilterStateRef,
       filterMenuCssVarsRef,
-      doUpdateFilters
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      paginationBehaviorOnFilterRef,
+      doUpdatePage,
+      doUpdateFilters,
+      filterIconPopoverPropsRef
     } = inject(dataTableInjectionKey)!
     const showPopoverRef = ref(false)
     const filterStateRef = mergedFilterStateRef
@@ -55,7 +57,8 @@ export default defineComponent({
       const filterValue = filterStateRef.value[props.column.key]
       if (filterValue === undefined) {
         const { value: multiple } = filterMultipleRef
-        if (multiple) return []
+        if (multiple)
+          return []
         else return null
       }
       return filterValue
@@ -69,11 +72,11 @@ export default defineComponent({
     })
     const mergedRenderFilterRef = computed(() => {
       return (
-        NConfigProvider?.mergedComponentPropsRef.value?.DataTable
-          ?.renderFilter || props.column.renderFilter
+        mergedComponentPropsRef?.value?.DataTable?.renderFilter
+        || props.column.renderFilter
       )
     })
-    function handleFilterChange (
+    function handleFilterChange(
       mergedFilterValue: FilterOptionValue | FilterOptionValue[] | null
     ): void {
       const nextFilterState = createFilterState(
@@ -82,11 +85,14 @@ export default defineComponent({
         mergedFilterValue
       )
       doUpdateFilters(nextFilterState, props.column)
+      if (paginationBehaviorOnFilterRef.value === 'first') {
+        doUpdatePage(1)
+      }
     }
-    function handleFilterMenuCancel (): void {
+    function handleFilterMenuCancel(): void {
       showPopoverRef.value = false
     }
-    function handleFilterMenuConfirm (): void {
+    function handleFilterMenuConfirm(): void {
       showPopoverRef.value = false
     }
     return {
@@ -95,6 +101,7 @@ export default defineComponent({
       active: activeRef,
       showPopover: showPopoverRef,
       mergedRenderFilter: mergedRenderFilterRef,
+      filterIconPopoverProps: filterIconPopoverPropsRef,
       filterMultiple: filterMultipleRef,
       mergedFilterValue: mergedFilterValueRef,
       filterMenuCssVars: filterMenuCssVarsRef,
@@ -103,16 +110,23 @@ export default defineComponent({
       handleFilterMenuCancel
     }
   },
-  render () {
-    const { mergedTheme, mergedClsPrefix } = this
+  render() {
+    const {
+      mergedTheme,
+      mergedClsPrefix,
+      handleFilterMenuCancel,
+      filterIconPopoverProps
+    } = this
     return (
       <NPopover
         show={this.showPopover}
-        onUpdateShow={(v) => (this.showPopover = v)}
+        onUpdateShow={v => (this.showPopover = v)}
         trigger="click"
         theme={mergedTheme.peers.Popover}
         themeOverrides={mergedTheme.peerOverrides.Popover}
-        padded={false}
+        placement="bottom"
+        {...filterIconPopoverProps}
+        style={{ padding: 0 }}
       >
         {{
           trigger: () => {
@@ -134,10 +148,10 @@ export default defineComponent({
                 class={[
                   `${mergedClsPrefix}-data-table-filter`,
                   {
-                    [`${mergedClsPrefix}-data-table-filter--active`]: this
-                      .active,
-                    [`${mergedClsPrefix}-data-table-filter--show`]: this
-                      .showPopover
+                    [`${mergedClsPrefix}-data-table-filter--active`]:
+                      this.active,
+                    [`${mergedClsPrefix}-data-table-filter--show`]:
+                      this.showPopover
                   }
                 ]}
               >
@@ -157,7 +171,7 @@ export default defineComponent({
           default: () => {
             const { renderFilterMenu } = this.column
             return renderFilterMenu ? (
-              renderFilterMenu()
+              renderFilterMenu({ hide: handleFilterMenuCancel })
             ) : (
               <NDataTableFilterMenu
                 style={this.filterMenuCssVars}

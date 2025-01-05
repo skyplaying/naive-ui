@@ -1,31 +1,33 @@
 import { c, cB, cE, cM, cNotM } from '../../../_utils/cssr'
 
 // vars:
-// --bezier
-// --border-radius
-// --border
-// --close-color
-// --close-color-hover
-// --close-color-pressed
-// --close-margin
-// --close-size
-// --color
-// --color-checkable
-// --color-checked
-// --color-checked-hover
-// --color-checked-pressed
-// --color-hover-checkable
-// --color-pressed-checkable
-// --font-size
-// --height
-// --opacity-disabled
-// --padding
-// --text-color
-// --text-color-checkable
-// --text-color-checked
-// --text-color-hover-checkable
-// --text-color-pressed-checkable
+// --n-bezier
+// --n-border-radius
+// --n-border
+// --n-close-icon-color
+// --n-close-icon-color-hover
+// --n-close-icon-color-pressed
+// --n-close-margin
+// --n-close-size
+// --n-color
+// --n-color-checkable
+// --n-color-checked
+// --n-color-checked-hover
+// --n-color-checked-pressed
+// --n-color-hover-checkable
+// --n-color-pressed-checkable
+// --n-font-size
+// --n-height
+// --n-opacity-disabled
+// --n-padding
+// --n-text-color
+// --n-text-color-checkable
+// --n-text-color-checked
+// --n-text-color-hover-checkable
+// --n-text-color-pressed-checkable
+// --n-font-weight-strong
 export default cB('tag', `
+  --n-close-margin: var(--n-close-margin-top) var(--n-close-margin-right) var(--n-close-margin-bottom) var(--n-close-margin-left);
   white-space: nowrap;
   position: relative;
   box-sizing: border-box;
@@ -33,20 +35,23 @@ export default cB('tag', `
   display: inline-flex;
   align-items: center;
   flex-wrap: nowrap;
-  padding: var(--padding);
-  border-radius: var(--border-radius);
-  color: var(--text-color);
-  background-color: var(--color);
+  padding: var(--n-padding);
+  border-radius: var(--n-border-radius);
+  color: var(--n-text-color);
+  background-color: var(--n-color);
   transition: 
-    border-color .3s var(--bezier),
-    background-color .3s var(--bezier),
-    color .3s var(--bezier),
-    box-shadow .3s var(--bezier),
-    opacity .3s var(--bezier);
-    line-height: var(--height);
-    height: var(--height);
-    font-size: var(--font-size);
+    border-color .3s var(--n-bezier),
+    background-color .3s var(--n-bezier),
+    color .3s var(--n-bezier),
+    box-shadow .3s var(--n-bezier),
+    opacity .3s var(--n-bezier);
+  line-height: 1;
+  height: var(--n-height);
+  font-size: var(--n-font-size);
 `, [
+  cM('strong', `
+    font-weight: var(--n-font-weight-strong);
+  `),
   cE('border', `
     pointer-events: none;
     position: absolute;
@@ -55,56 +60,70 @@ export default cB('tag', `
     top: 0;
     bottom: 0;
     border-radius: inherit;
-    border: var(--border);
-    transition: border-color .3s var(--bezier);
+    border: var(--n-border);
+    transition: border-color .3s var(--n-bezier);
+  `),
+  cE('icon', `
+    display: flex;
+    margin: 0 4px 0 0;
+    color: var(--n-text-color);
+    transition: color .3s var(--n-bezier);
+    font-size: var(--n-avatar-size-override);
+  `),
+  cE('avatar', `
+    display: flex;
+    margin: 0 6px 0 0;
   `),
   cE('close', `
-    font-size: var(--close-size);
-    margin: var(--close-margin);
-    transition: color .3s var(--bezier);
-    cursor: pointer;
+    margin: var(--n-close-margin);
+    transition:
+      background-color .3s var(--n-bezier),
+      color .3s var(--n-bezier);
   `),
   cM('round', `
-    padding: 0 calc(var(--height) / 2);
-    border-radius: calc(var(--height) / 2);
+    padding: 0 calc(var(--n-height) / 3);
+    border-radius: calc(var(--n-height) / 2);
+  `, [
+    cE('icon', `
+      margin: 0 4px 0 calc((var(--n-height) - 8px) / -2);
+    `),
+    cE('avatar', `
+      margin: 0 6px 0 calc((var(--n-height) - 8px) / -2);
+    `),
+    cM('closable', `
+      padding: 0 calc(var(--n-height) / 4) 0 calc(var(--n-height) / 3);
+    `)
+  ]),
+  cM('icon, avatar', [
+    cM('round', `
+      padding: 0 calc(var(--n-height) / 3) 0 calc(var(--n-height) / 2);
+    `)
+  ]),
+  cM('disabled', `
+    cursor: not-allowed !important;
+    opacity: var(--n-opacity-disabled);
   `),
-  cM('disabled', {
-    cursor: 'not-allowed !important',
-    opacity: 'var(--opacity-disabled)'
-  }),
   cM('checkable', `
     cursor: pointer;
     box-shadow: none;
-    color: var(--text-color-checkable);
-    background-color: var(--color-checkable);
+    color: var(--n-text-color-checkable);
+    background-color: var(--n-color-checkable);
   `, [
     cNotM('disabled', [
-      c('&:hover', {
-        backgroundColor: 'var(--color-hover-checkable)'
-      }, [
-        cNotM('checked', {
-          color: 'var(--text-color-hover-checkable)'
-        })
+      c('&:hover', 'background-color: var(--n-color-hover-checkable);', [
+        cNotM('checked', 'color: var(--n-text-color-hover-checkable);')
       ]),
-      c('&:active', {
-        backgroundColor: 'var(--color-pressed-checkable)'
-      }, [
-        cNotM('checked', {
-          color: 'var(--text-color-pressed-checkable)'
-        })
+      c('&:active', 'background-color: var(--n-color-pressed-checkable);', [
+        cNotM('checked', 'color: var(--n-text-color-pressed-checkable);')
       ])
     ]),
-    cM('checked', {
-      color: 'var(--text-color-checked)',
-      backgroundColor: 'var(--color-checked)'
-    }, [
+    cM('checked', `
+      color: var(--n-text-color-checked);
+      background-color: var(--n-color-checked);
+    `, [
       cNotM('disabled', [
-        c('&:hover', {
-          backgroundColor: 'var(--color-checked-hover)'
-        }),
-        c('&:active', {
-          backgroundColor: 'var(--color-checked-pressed)'
-        })
+        c('&:hover', 'background-color: var(--n-color-checked-hover);'),
+        c('&:active', 'background-color: var(--n-color-checked-pressed);')
       ])
     ])
   ])

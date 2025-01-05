@@ -1,13 +1,12 @@
 import {
+  computed,
   defineComponent,
   h,
   nextTick,
+  type PropType,
   ref,
-  computed,
-  PropType,
-  watch,
   toRef,
-  Ref
+  watch
 } from 'vue'
 
 export default defineComponent({
@@ -31,7 +30,7 @@ export default defineComponent({
       default: undefined
     }
   },
-  setup (props) {
+  setup(props) {
     const numberRef = ref<HTMLElement | null>(null)
     const oldNumberRef = ref<number | string>(props.value)
     const newNumberRef = ref<number | string>(props.value)
@@ -48,12 +47,12 @@ export default defineComponent({
         : null
     })
     // BUG: may be typescript bug
-    watch(toRef(props, 'value') as Ref<string | number>, (value, oldValue) => {
+    watch(toRef(props, 'value'), (value, oldValue) => {
       oldNumberRef.value = oldValue
       newNumberRef.value = value
       void nextTick(scroll)
     })
-    function scroll (): void {
+    function scroll(): void {
       const newOriginalNumber = props.newOriginalNumber
       const oldOriginalNumber = props.oldOriginalNumber
       if (oldOriginalNumber === undefined || newOriginalNumber === undefined) {
@@ -61,11 +60,12 @@ export default defineComponent({
       }
       if (newOriginalNumber > oldOriginalNumber) {
         scrollByDir('up')
-      } else if (oldOriginalNumber > newOriginalNumber) {
+      }
+      else if (oldOriginalNumber > newOriginalNumber) {
         scrollByDir('down')
       }
     }
-    function scrollByDir (dir: 'up' | 'down'): void {
+    function scrollByDir(dir: 'up' | 'down'): void {
       scrollAnimationDirectionRef.value = dir
       activeRef.value = false
       void nextTick(() => {
@@ -97,8 +97,8 @@ export default defineComponent({
               ref="numberWrapper"
               class={[
                 `${clsPrefix}-base-slot-machine-current-number__inner`,
-                typeof props.value !== 'number' &&
-                  `${clsPrefix}-base-slot-machine-current-number__inner--not-number`
+                typeof props.value !== 'number'
+                && `${clsPrefix}-base-slot-machine-current-number__inner--not-number`
               ]}
             >
               {newNumberRef.value}

@@ -1,25 +1,27 @@
 # Gradient Text
 
-It doesn't seem very useful. In fact it isn't.
+It doesn't seem very useful... In fact it isn't.
 
 ## Demos
 
 ```demo
-basic
-size
-custom
+basic.vue
+size.vue
+custom.vue
 ```
 
-## Props
+## API
+
+### GradientText Props
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| gradient | `string \| { from: string, to: string, deg: number \| string }` | `undefined` |  |
-| size | `number \| string` | `undefined` |  |
-| type | `'primary' \| 'info' \| 'success' \| 'warning' \| 'error'` | `'primary'` |  |
+| gradient | `string \| { from: string, to: string, deg: number \| string }` | `undefined` | Text gradient color parameters. |
+| size | `number \| string` | `undefined` | Text size (when the unit is not specified the default unit will be `px`). |
+| type | `'primary' \| 'info' \| 'success' \| 'warning' \| 'error'` | `'primary'` | Gradient Text type. |
 
-## Slots
+### GradientText Slots
 
-| Name    | Parameters | Description |
-| ------- | ---------- | ----------- |
-| default | `()`       |             |
+| Name    | Parameters | Description                       |
+| ------- | ---------- | --------------------------------- |
+| default | `()`       | The content of the gradient text. |

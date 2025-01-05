@@ -2,27 +2,33 @@
 
 Complexity has to live somewhere.
 
-When you hearing somebody talks about subtle concept model, keep alert.
+When you hear somebody talk about a subtle concept, keep alert.
 
 ## Demos
 
 ```demo
-basic
-line-clamp
-custom-tooltip
+basic.vue
+line-clamp.vue
+expand-trigger.vue
+custom-tooltip.vue
+performant-ellipsis.vue
 ```
 
-## Props
+## API
+
+### Ellipsis, PerformantEllipsis Props
+
+`n-performant-ellipsis` since 2.35.0.
 
 | Name | Type | Default | Description | Version |
 | --- | --- | --- | --- | --- |
-| expand-trigger | `'click'` | `undefined` |  | 2.1.0 |
-| line-clmap | `number \| string` | `undefined` | Max lines. | 2.1.0 |
-| tooltip | `boolean \| TooltipProps` | `true` | The props of tooltip. | 2.1.0 |
+| expand-trigger | `'click'` | `undefined` | Abbreviated content trigger event to expand to the full text. | 2.1.0 |
+| line-clamp | `number \| string` | `undefined` | Maximum lines. | 2.1.0 |
+| tooltip | `boolean \| TooltipProps` | `true` | Tooltip properties. | 2.1.0 |
 
-## Slots
+### Ellipsis Slots
 
-| Name    | Parameters | Description |
-| ------- | ---------- | ----------- |
-| default | `()`       |             |
-| tooltip | `()`       |             |
+| Name    | Parameters | Description                           |
+| ------- | ---------- | ------------------------------------- |
+| default | `()`       | The content of the ellipsis.          |
+| tooltip | `()`       | The content of the ellipsis' tooltip. |

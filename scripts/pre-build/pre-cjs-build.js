@@ -1,8 +1,10 @@
 // replace lodash-es
 const { replaceDefine, srcDir } = require('../utils')
 
-;(async () => {
+;
+
+(async () => {
   await replaceDefine([srcDir], {
-    "'lodash\\-es'": "'lodash'"
+    '\'lodash-es\'': '\'lodash\''
   })
 })()

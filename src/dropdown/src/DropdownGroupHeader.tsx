@@ -1,6 +1,7 @@
+import type { DropdownMixedOption } from './interface'
 import { defineComponent, h, inject } from 'vue'
 import { render } from '../../_utils'
-import { dropdownMenuInjectionKey } from './DropdownMenu'
+import { dropdownInjectionKey, dropdownMenuInjectionKey } from './context'
 
 export default defineComponent({
   name: 'DropdownGroupHeader',
@@ -14,24 +15,41 @@ export default defineComponent({
       required: true
     }
   },
-  setup () {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  setup() {
     const { showIconRef, hasSubmenuRef } = inject(dropdownMenuInjectionKey)!
+
+    const { renderLabelRef, labelFieldRef, nodePropsRef, renderOptionRef }
+      = inject(dropdownInjectionKey)!
+
     return {
+      labelField: labelFieldRef,
       showIcon: showIconRef,
-      hasSubmenu: hasSubmenuRef
+      hasSubmenu: hasSubmenuRef,
+      renderLabel: renderLabelRef,
+      nodeProps: nodePropsRef,
+      renderOption: renderOptionRef
     }
   },
-  render () {
-    const { clsPrefix, hasSubmenu, showIcon } = this
+  render() {
+    const {
+      clsPrefix,
+      hasSubmenu,
+      showIcon,
+      nodeProps,
+      renderLabel,
+      renderOption
+    } = this
     const { rawNode } = this.tmNode
-    return (
-      <div class={`${clsPrefix}-dropdown-option`}>
+    const node = (
+      <div
+        class={`${clsPrefix}-dropdown-option`}
+        {...nodeProps?.(rawNode as DropdownMixedOption)}
+      >
         <div
           class={`${clsPrefix}-dropdown-option-body ${clsPrefix}-dropdown-option-body--group`}
         >
           <div
-            __dropdown-option
+            data-dropdown-option
             class={[
               `${clsPrefix}-dropdown-option-body__prefix`,
               showIcon && `${clsPrefix}-dropdown-option-body__prefix--show-icon`
@@ -41,20 +59,26 @@ export default defineComponent({
           </div>
           <div
             class={`${clsPrefix}-dropdown-option-body__label`}
-            __dropdown-option
+            data-dropdown-option
           >
-            {render(rawNode.label ?? rawNode.title)}
+            {renderLabel
+              ? renderLabel(rawNode as DropdownMixedOption)
+              : render(rawNode.title ?? rawNode[this.labelField])}
           </div>
           <div
             class={[
               `${clsPrefix}-dropdown-option-body__suffix`,
-              hasSubmenu &&
-                `${clsPrefix}-dropdown-option-body__suffix--has-submenu`
+              hasSubmenu
+              && `${clsPrefix}-dropdown-option-body__suffix--has-submenu`
             ]}
-            __dropdown-option
+            data-dropdown-option
           />
         </div>
       </div>
     )
+    if (renderOption) {
+      return renderOption({ node, option: rawNode })
+    }
+    return node
   }
 })

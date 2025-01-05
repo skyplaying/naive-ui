@@ -1,16 +1,19 @@
-import { c, cB } from '../../../_utils/cssr'
-import fadeInTransition from '../../../_styles/transitions/fade-in.cssr'
-import fadeInzoomInTransiton from '../../../_styles/transitions/fade-in-scale-up.cssr'
+import { fadeInScaleUpTransition } from '../../../_styles/transitions/fade-in-scale-up.cssr'
+import { fadeInTransition } from '../../../_styles/transitions/fade-in.cssr'
+import { c, cB, cNotM } from '../../../_utils/cssr'
 
 // vars:
-// --icon-color
-// --bezier
+// --n-toolbar-icon-color
+// --n-toolbar-color
+// --n-toolbar-border-radius
+// --n-toolbar-box-shadow
+// --n-bezier
 export default c([
   c('body >', [
     cB('image-container', 'position: fixed;')
   ]),
   cB('image-preview-container', `
-    position: absolute;
+    position: fixed;
     left: 0;
     right: 0;
     top: 0;
@@ -33,13 +36,14 @@ export default c([
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    border-radius: 24px;
+    border-radius: var(--n-toolbar-border-radius);
     height: 48px;
     bottom: 40px;
     padding: 0 12px;
-    background: rgba(0, 0, 0, .35);
-    color: var(--icon-color);
-    transition: color .3s var(--bezier);
+    background: var(--n-toolbar-color);
+    box-shadow: var(--n-toolbar-box-shadow);
+    color: var(--n-toolbar-icon-color);
+    transition: color .3s var(--n-bezier);
     display: flex;
     align-items: center;
   `, [
@@ -59,18 +63,27 @@ export default c([
     display: flex;
     pointer-events: none;
   `, [
-    fadeInzoomInTransiton()
+    fadeInScaleUpTransition()
   ]),
   cB('image-preview', `
     user-select: none;
+    -webkit-user-select: none;
     pointer-events: all;
     margin: auto;
-    max-height: 100vh;
-    max-width: 100vw;
-    transition: transform .3s var(--bezier);
+    max-height: calc(100vh - 32px);
+    max-width: calc(100vw - 32px);
+    transition: transform .3s var(--n-bezier);
   `),
   cB('image', `
     display: inline-flex;
-    cursor: pointer;
-  `)
+    max-height: 100%;
+    max-width: 100%;
+  `, [
+    cNotM('preview-disabled', `
+      cursor: pointer;
+    `),
+    c('img', `
+      border-radius: inherit;
+    `)
+  ])
 ])

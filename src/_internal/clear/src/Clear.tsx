@@ -1,8 +1,9 @@
-import { h, defineComponent, PropType, toRef } from 'vue'
-import { useStyle, useConfig } from '../../../_mixins'
-import { ClearIcon } from '../../icons'
-import NBaseIcon from '../../icon'
+import { defineComponent, h, type PropType, toRef } from 'vue'
+import { useStyle } from '../../../_mixins'
+import { resolveSlot } from '../../../_utils'
+import { NBaseIcon } from '../../icon'
 import NIconSwitchTransition from '../../icon-switch-transition'
+import { ClearIcon } from '../../icons'
 import style from './styles/index.cssr'
 
 export default defineComponent({
@@ -12,44 +13,43 @@ export default defineComponent({
       type: String,
       required: true
     },
-    show: {
-      type: Boolean,
-      default: false
-    },
+    show: Boolean,
     onClear: Function as PropType<(e: MouseEvent) => void>
   },
-  setup (props) {
-    useStyle('BaseClear', style, toRef(props, 'clsPrefix'))
-    const { NConfigProvider } = useConfig()
+  setup(props) {
+    useStyle('-base-clear', style, toRef(props, 'clsPrefix'))
     return {
-      NConfigProvider,
-      handleMouseDown (e: MouseEvent) {
+      handleMouseDown(e: MouseEvent) {
         e.preventDefault()
       }
     }
   },
-  render () {
+  render() {
     const { clsPrefix } = this
     return (
-      <div class={`${clsPrefix}-base-clear`} data-clear>
+      <div class={`${clsPrefix}-base-clear`}>
         <NIconSwitchTransition>
           {{
             default: () => {
               return this.show ? (
-                <NBaseIcon
-                  clsPrefix={clsPrefix}
+                <div
                   key="dismiss"
                   class={`${clsPrefix}-base-clear__clear`}
                   onClick={this.onClear}
                   onMousedown={this.handleMouseDown}
+                  data-clear
                 >
-                  {{
-                    default: () => <ClearIcon />
-                  }}
-                </NBaseIcon>
+                  {resolveSlot(this.$slots.icon, () => [
+                    <NBaseIcon clsPrefix={clsPrefix}>
+                      {{
+                        default: () => <ClearIcon />
+                      }}
+                    </NBaseIcon>
+                  ])}
+                </div>
               ) : (
                 <div key="icon" class={`${clsPrefix}-base-clear__placeholder`}>
-                  {this.$slots}
+                  {this.$slots.placeholder?.()}
                 </div>
               )
             }

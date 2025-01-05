@@ -1,30 +1,25 @@
 # 自定义渲染列头
 
 ```html
-<n-data-table
-  ref="table"
-  :columns="columns"
-  :data="data"
-  :pagination="pagination"
-/>
+<n-data-table :columns="columns" :data="data" :pagination="pagination" />
 ```
 
 ```js
-import { h } from 'vue'
-import { NTooltip, NGradientText } from 'naive-ui'
+import { NGradientText, NTooltip } from 'naive-ui'
+import { defineComponent, h } from 'vue'
 
-const renderTooltip = (trigger, content) => {
+function renderTooltip(trigger, content) {
   return h(NTooltip, null, {
     trigger: () => trigger,
     default: () => content
   })
 }
 
-const createColumns = (instance) => {
+function createColumns(instance) {
   return [
     {
       key: 'name',
-      title (column) {
+      title(column) {
         return renderTooltip(
           h(
             NGradientText,
@@ -40,7 +35,7 @@ const createColumns = (instance) => {
     },
     {
       key: 'age',
-      title (column) {
+      title(column) {
         return h(
           NGradientText,
           {
@@ -53,7 +48,7 @@ const createColumns = (instance) => {
     },
     {
       key: 'address',
-      title (column) {
+      title(column) {
         return h(
           NGradientText,
           {
@@ -88,15 +83,15 @@ const data = [
   }
 ]
 
-export default {
-  data () {
+export default defineComponent({
+  setup() {
     return {
-      data: data,
+      data,
       columns: createColumns(this),
       pagination: {
         pageSize: 10
       }
     }
   }
-}
+})
 ```

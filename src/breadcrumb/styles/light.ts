@@ -1,23 +1,28 @@
-import commonVariables from './_common'
-import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
 import type { Theme } from '../../_mixins'
+import type { ThemeCommonVars } from '../../_styles/common'
+import { commonLight } from '../../_styles/common'
+import commonVariables from './_common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     fontSize,
     textColor3,
-    primaryColorHover,
-    primaryColorPressed,
-    textColor2
+    textColor2,
+    borderRadius,
+    buttonColor2Hover,
+    buttonColor2Pressed
   } = vars
   return {
     ...commonVariables,
-    fontSize: fontSize,
+    fontSize,
+    itemLineHeight: '1.25',
     itemTextColor: textColor3,
-    itemTextColorHover: primaryColorHover,
-    itemTextColorPressed: primaryColorPressed,
+    itemTextColorHover: textColor2,
+    itemTextColorPressed: textColor2,
     itemTextColorActive: textColor2,
+    itemBorderRadius: borderRadius,
+    itemColorHover: buttonColor2Hover,
+    itemColorPressed: buttonColor2Pressed,
     separatorColor: textColor3
   }
 }

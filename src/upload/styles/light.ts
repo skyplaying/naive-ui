@@ -1,11 +1,11 @@
+import type { ThemeCommonVars } from '../../_styles/common'
 import { changeColor } from 'seemly'
+import { createTheme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
 import { buttonLight } from '../../button/styles'
 import { progressLight } from '../../progress/styles'
-import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
-import { createTheme } from '../../_mixins'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     iconColor,
     primaryColor,
@@ -35,7 +35,9 @@ export const self = (vars: ThemeCommonVars) => {
     itemTextColorError: errorColor,
     itemTextColorSuccess: successColor,
     itemIconColor: iconColor,
-    itemDisabledOpacity: opacityDisabled
+    itemDisabledOpacity: opacityDisabled,
+    itemBorderImageCardError: `1px solid ${errorColor}`,
+    itemBorderImageCard: `1px solid ${borderColor}`
   }
 }
 

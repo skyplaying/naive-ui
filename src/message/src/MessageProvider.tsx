@@ -1,51 +1,46 @@
-import {
-  Fragment,
-  ref,
-  h,
-  reactive,
-  Teleport,
-  defineComponent,
-  provide,
-  VNodeChild,
-  InjectionKey,
-  ExtractPropTypes,
-  renderSlot,
-  Ref
-} from 'vue'
-import { createId } from 'seemly'
-import { ExtractPublicPropTypes, omit } from '../../_utils'
-import { useConfig, useTheme } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import type { MessageTheme } from '../styles'
+import type { MessageOptions, MessageType } from './types'
+import { createId } from 'seemly'
+import {
+  type CSSProperties,
+  defineComponent,
+  type ExtractPropTypes,
+  Fragment,
+  h,
+  type PropType,
+  provide,
+  reactive,
+  ref,
+  Teleport,
+  type VNodeChild
+} from 'vue'
+import { useConfig, useTheme } from '../../_mixins'
+import { omit } from '../../_utils'
+import { messageApiInjectionKey, messageProviderInjectionKey } from './context'
 import MessageEnvironment from './MessageEnvironment'
-import { MessageTheme } from '../styles'
-
-export interface MessageOptions {
-  duration?: number
-  closable?: boolean
-  icon?: () => VNodeChild
-  onClose?: () => void
-  onLeave?: () => void
-  onAfterLeave?: () => void
-}
 
 type ContentType = string | (() => VNodeChild)
 
 export interface MessageApiInjection {
+  create: (content: ContentType, options?: MessageOptions) => MessageReactive
   info: (content: ContentType, options?: MessageOptions) => MessageReactive
   success: (content: ContentType, options?: MessageOptions) => MessageReactive
   warning: (content: ContentType, options?: MessageOptions) => MessageReactive
   error: (content: ContentType, options?: MessageOptions) => MessageReactive
   loading: (content: ContentType, options?: MessageOptions) => MessageReactive
+  destroyAll: () => void
 }
-
-export const messageApiInjectionKey: InjectionKey<MessageApiInjection> =
-  Symbol('messageApi')
 
 export interface MessageReactive {
   content?: ContentType
   duration?: number
   closable?: boolean
+  keepAliveOnHover?: boolean
+  type: MessageType
   icon?: () => VNodeChild
+  showIcon?: boolean
   onClose?: () => void
   destroy: () => void
 }
@@ -61,72 +56,103 @@ interface PrivateMessageRef extends MessageReactive {
 
 export type MessageProviderInst = MessageApiInjection
 
-const messageProviderProps = {
+export const messageProviderProps = {
   ...(useTheme.props as ThemeProps<MessageTheme>),
-  to: {
-    type: [String, Object],
-    default: undefined
-  }
+  to: [String, Object] as PropType<string | HTMLElement>,
+  duration: {
+    type: Number,
+    default: 3000
+  },
+  keepAliveOnHover: Boolean,
+  max: Number,
+  placement: {
+    type: String as PropType<
+      | 'top'
+      | 'top-left'
+      | 'top-right'
+      | 'bottom'
+      | 'bottom-left'
+      | 'bottom-right'
+    >,
+    default: 'top'
+  },
+  closable: Boolean,
+  containerClass: String,
+  containerStyle: [String, Object] as PropType<string | CSSProperties>
 }
 
 export type MessageProviderProps = ExtractPublicPropTypes<
   typeof messageProviderProps
 >
 
-type MessageProviderSetupProps = ExtractPropTypes<typeof messageProviderProps>
-
-export const messageProviderInjectionKey: InjectionKey<{
-  props: MessageProviderSetupProps
-  mergedClsPrefixRef: Ref<string>
-}> = Symbol('messageProvider')
+export type MessageProviderSetupProps = ExtractPropTypes<
+  typeof messageProviderProps
+>
 
 export default defineComponent({
   name: 'MessageProvider',
   props: messageProviderProps,
-  setup (props) {
+  setup(props) {
     const { mergedClsPrefixRef } = useConfig(props)
     const messageListRef = ref<PrivateMessageReactive[]>([])
-    const messageRefs = ref<{ [key: string]: PrivateMessageRef }>({})
+    const messageRefs = ref<Record<string, PrivateMessageRef>>({})
     const api: MessageApiInjection = {
-      info (content: ContentType, options?: MessageOptions) {
+      create(content: ContentType, options?: MessageOptions) {
+        return create(content, { type: 'default', ...options })
+      },
+      info(content: ContentType, options?: MessageOptions) {
         return create(content, { ...options, type: 'info' })
       },
-      success (content: ContentType, options?: MessageOptions) {
+      success(content: ContentType, options?: MessageOptions) {
         return create(content, { ...options, type: 'success' })
       },
-      warning (content: ContentType, options?: MessageOptions) {
+      warning(content: ContentType, options?: MessageOptions) {
         return create(content, { ...options, type: 'warning' })
       },
-      error (content: ContentType, options?: MessageOptions) {
+      error(content: ContentType, options?: MessageOptions) {
         return create(content, { ...options, type: 'error' })
       },
-      loading (content: ContentType, options?: MessageOptions) {
+      loading(content: ContentType, options?: MessageOptions) {
         return create(content, { ...options, type: 'loading' })
-      }
+      },
+      destroyAll
     }
     provide(messageProviderInjectionKey, {
       props,
       mergedClsPrefixRef
     })
     provide(messageApiInjectionKey, api)
-    function create (content: ContentType, options = {}): MessageReactive {
+    function create(
+      content: ContentType,
+      options: MessageOptions & { type: MessageType }
+    ): MessageReactive {
       const key = createId()
       const messageReactive = reactive({
         ...options,
         content,
         key,
         destroy: () => {
-          messageRefs.value[key].hide()
+          messageRefs.value[key]?.hide()
         }
       })
+      const { max } = props
+      if (max && messageListRef.value.length >= max) {
+        messageListRef.value.shift()
+      }
       messageListRef.value.push(messageReactive)
       return messageReactive
     }
-    function handleAfterLeave (key: string): void {
+    function handleAfterLeave(key: string): void {
       messageListRef.value.splice(
-        messageListRef.value.findIndex((message) => message.key === key),
+        messageListRef.value.findIndex(message => message.key === key),
         1
       )
+      delete messageRefs.value[key]
+    }
+    function destroyAll(): void {
+      Object.values(messageRefs.value).forEach((messageInstRef) => {
+        messageInstRef.hide()
+      })
     }
     return Object.assign(
       {
@@ -138,27 +164,49 @@ export default defineComponent({
       api
     )
   },
-  render () {
+  render() {
     return (
       <>
-        {renderSlot(this.$slots, 'default')}
+        {this.$slots.default?.()}
         {this.messageList.length ? (
           <Teleport to={this.to ?? 'body'}>
             <div
-              class={`${this.mergedClsPrefix}-message-container`}
+              class={[
+                `${this.mergedClsPrefix}-message-container`,
+                `${this.mergedClsPrefix}-message-container--${this.placement}`,
+                this.containerClass
+              ]}
               key="message-container"
+              style={this.containerStyle}
             >
               {this.messageList.map((message) => {
                 return (
                   <MessageEnvironment
                     ref={
                       ((inst: PrivateMessageRef) => {
-                        this.messageRefs[message.key] = inst
+                        if (inst) {
+                          this.messageRefs[message.key] = inst
+                        }
                       }) as () => void
                     }
                     internalKey={message.key}
                     onInternalAfterLeave={this.handleAfterLeave}
                     {...omit(message, ['destroy'], undefined)}
+                    duration={
+                      message.duration === undefined
+                        ? this.duration
+                        : message.duration
+                    }
+                    keepAliveOnHover={
+                      message.keepAliveOnHover === undefined
+                        ? this.keepAliveOnHover
+                        : message.keepAliveOnHover
+                    }
+                    closable={
+                      message.closable === undefined
+                        ? this.closable
+                        : message.closable
+                    }
                   />
                 )
               })}

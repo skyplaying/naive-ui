@@ -1,19 +1,19 @@
+import type { ThemeCommonVars } from '../../_styles/common'
 import { composite } from 'seemly'
-import commonVariables from './_common'
-import { ellipsisLight } from '../../ellipsis/styles'
+import { scrollbarLight } from '../../_internal/scrollbar/styles'
+import { createTheme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
 import { buttonLight } from '../../button/styles'
 import { checkboxLight } from '../../checkbox/styles'
-import { radioLight } from '../../radio/styles'
-import { paginationLight } from '../../pagination/styles'
-import { scrollbarLight } from '../../scrollbar/styles'
-import { popoverLight } from '../../popover/styles'
-import { spinLight } from '../../spin/styles'
+import { dropdownLight } from '../../dropdown/styles'
+import { ellipsisLight } from '../../ellipsis/styles'
 import { emptyLight } from '../../empty/styles'
-import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
-import { createTheme } from '../../_mixins'
+import { paginationLight } from '../../pagination/styles'
+import { popoverLight } from '../../popover/styles'
+import { radioLight } from '../../radio/styles'
+import commonVariables from './_common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     cardColor,
     modalColor,
@@ -30,7 +30,10 @@ export const self = (vars: ThemeCommonVars) => {
     fontSizeSmall,
     fontSizeMedium,
     fontSizeLarge,
-    dividerColor
+    dividerColor,
+    heightSmall,
+    opacityDisabled,
+    tableColorStriped
   } = vars
   return {
     ...commonVariables,
@@ -42,8 +45,14 @@ export const self = (vars: ThemeCommonVars) => {
     fontSizeLarge,
     borderColor: composite(cardColor, dividerColor),
     tdColorHover: composite(cardColor, tableColorHover),
+    tdColorSorting: composite(cardColor, tableColorHover),
+    tdColorStriped: composite(cardColor, tableColorStriped),
     thColor: composite(cardColor, tableHeaderColor),
     thColorHover: composite(
+      composite(cardColor, tableHeaderColor),
+      tableColorHover
+    ),
+    thColorSorting: composite(
       composite(cardColor, tableHeaderColor),
       tableColorHover
     ),
@@ -57,8 +66,14 @@ export const self = (vars: ThemeCommonVars) => {
     // modal
     borderColorModal: composite(modalColor, dividerColor),
     tdColorHoverModal: composite(modalColor, tableColorHover),
+    tdColorSortingModal: composite(modalColor, tableColorHover),
+    tdColorStripedModal: composite(modalColor, tableColorStriped),
     thColorModal: composite(modalColor, tableHeaderColor),
     thColorHoverModal: composite(
+      composite(modalColor, tableHeaderColor),
+      tableColorHover
+    ),
+    thColorSortingModal: composite(
       composite(modalColor, tableHeaderColor),
       tableColorHover
     ),
@@ -66,14 +81,24 @@ export const self = (vars: ThemeCommonVars) => {
     // popover
     borderColorPopover: composite(popoverColor, dividerColor),
     tdColorHoverPopover: composite(popoverColor, tableColorHover),
+    tdColorSortingPopover: composite(popoverColor, tableColorHover),
+    tdColorStripedPopover: composite(popoverColor, tableColorStriped),
     thColorPopover: composite(popoverColor, tableHeaderColor),
     thColorHoverPopover: composite(
       composite(popoverColor, tableHeaderColor),
       tableColorHover
     ),
+    thColorSortingPopover: composite(
+      composite(popoverColor, tableHeaderColor),
+      tableColorHover
+    ),
     tdColorPopover: popoverColor,
     boxShadowBefore: 'inset -12px 0 8px -12px rgba(0, 0, 0, .18)',
-    boxShadowAfter: 'inset 12px 0 8px -12px rgba(0, 0, 0, .18)'
+    boxShadowAfter: 'inset 12px 0 8px -12px rgba(0, 0, 0, .18)',
+    // loading
+    loadingColor: primaryColor,
+    loadingSize: heightSmall,
+    opacityLoading: opacityDisabled
   }
 }
 
@@ -88,10 +113,10 @@ const dataTableLight = createTheme({
     Radio: radioLight,
     Pagination: paginationLight,
     Scrollbar: scrollbarLight,
-    Spin: spinLight,
     Empty: emptyLight,
     Popover: popoverLight,
-    Ellipsis: ellipsisLight
+    Ellipsis: ellipsisLight,
+    Dropdown: dropdownLight
   },
   self
 })

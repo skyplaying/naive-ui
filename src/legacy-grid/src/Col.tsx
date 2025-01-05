@@ -1,14 +1,12 @@
-import { h, computed, defineComponent, inject, PropType } from 'vue'
+import type { Span } from './interface'
+import { computed, defineComponent, h, inject, type PropType } from 'vue'
 import {
-  ExtractPublicPropTypes,
+  type ExtractPublicPropTypes,
   formatLength,
   keysOf,
   throwError
 } from '../../_utils'
-import { useStyle } from '../../_mixins'
 import { rowInjectionKey } from './Row'
-import style from './styles/index.cssr'
-import { Span } from './interface'
 
 export const colProps = {
   span: {
@@ -36,10 +34,10 @@ export type ColProps = ExtractPublicPropTypes<typeof colProps>
 export default defineComponent({
   name: 'Col',
   props: colProps,
-  setup (props) {
-    useStyle('Grid', style)
+  setup(props) {
     const NRow = inject(rowInjectionKey, null)
-    if (!NRow) throwError('col', '`n-col` must be placed inside `n-row`.')
+    if (!NRow)
+      throwError('col', '`n-col` must be placed inside `n-row`.')
     return {
       mergedClsPrefix: NRow.mergedClsPrefixRef,
       gutter: NRow.gutterRef,
@@ -52,7 +50,7 @@ export default defineComponent({
       mergedPush: computed(() => Number(props.push) - Number(props.pull))
     }
   },
-  render () {
+  render() {
     const {
       $slots,
       span,

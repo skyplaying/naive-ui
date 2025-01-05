@@ -1,25 +1,17 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import {
-  h,
-  ref,
-  defineComponent,
-  inject,
-  computed,
-  renderSlot,
-  watchEffect
-} from 'vue'
-import { formatLength } from '../../_utils'
-import TableHeader from './TableParts/Header'
-import TableBody from './TableParts/Body'
-import {
-  dataTableInjectionKey,
+import type {
   MainTableBodyRef,
   MainTableHeaderRef,
   MainTableRef
 } from './interface'
+import { computed, defineComponent, h, inject, ref, watchEffect } from 'vue'
+import { formatLength } from '../../_utils'
+import { dataTableInjectionKey } from './interface'
+import TableBody from './TableParts/Body'
+import TableHeader from './TableParts/Header'
 
 export default defineComponent({
-  setup () {
+  name: 'MainTable',
+  setup() {
     const {
       mergedClsPrefixRef,
       rightFixedColumnsRef,
@@ -27,9 +19,9 @@ export default defineComponent({
       bodyWidthRef,
       maxHeightRef,
       minHeightRef,
-      handleTableHeaderScroll,
+      flexHeightRef,
+      virtualScrollHeaderRef,
       syncScrollState
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     } = inject(dataTableInjectionKey)!
 
     const headerInstRef = ref<MainTableHeaderRef | null>(null)
@@ -46,21 +38,26 @@ export default defineComponent({
         minHeight: formatLength(minHeightRef.value)
       }
     })
-    function handleBodyResize (entry: ResizeObserverEntry): void {
+    function handleBodyResize(entry: ResizeObserverEntry): void {
       bodyWidthRef.value = entry.contentRect.width
       syncScrollState()
       if (!fixedStateInitializedRef.value) {
         fixedStateInitializedRef.value = true
       }
     }
-    function getHeaderElement (): HTMLElement | null {
+    function getHeaderElement(): HTMLElement | null {
       const { value } = headerInstRef
       if (value) {
-        return value.$el
+        if (virtualScrollHeaderRef.value) {
+          return value.virtualListRef?.listElRef || null
+        }
+        else {
+          return value.$el
+        }
       }
       return null
     }
-    function getBodyElement (): HTMLElement | null {
+    function getBodyElement(): HTMLElement | null {
       const { value } = bodyInstRef
       if (value) {
         return value.getScrollContainer()
@@ -69,17 +66,22 @@ export default defineComponent({
     }
     const exposedMethods: MainTableRef = {
       getBodyElement,
-      getHeaderElement
+      getHeaderElement,
+      scrollTo(arg0: any, arg1?: any) {
+        bodyInstRef.value?.scrollTo(arg0, arg1)
+      }
     }
     watchEffect(() => {
       const { value: selfEl } = selfElRef
-      if (!selfEl) return
+      if (!selfEl)
+        return
       const transitionDisabledClass = `${mergedClsPrefixRef.value}-data-table-base-table--transition-disabled`
       if (fixedStateInitializedRef.value) {
         setTimeout(() => {
           selfEl.classList.remove(transitionDisabledClass)
         }, 0)
-      } else {
+      }
+      else {
         selfEl.classList.add(transitionDisabledClass)
       }
     })
@@ -90,24 +92,24 @@ export default defineComponent({
       headerInstRef,
       bodyInstRef,
       bodyStyle: bodyStyleRef,
-      handleTableHeaderScroll,
+      flexHeight: flexHeightRef,
       handleBodyResize,
       ...exposedMethods
     }
   },
-  render () {
-    const { mergedClsPrefix, maxHeight } = this
-    const headerInBody = maxHeight === undefined
+  render() {
+    const { mergedClsPrefix, maxHeight, flexHeight } = this
+    const headerInBody = maxHeight === undefined && !flexHeight
     return (
       <div class={`${mergedClsPrefix}-data-table-base-table`} ref="selfElRef">
         {headerInBody ? null : <TableHeader ref="headerInstRef" />}
         <TableBody
           ref="bodyInstRef"
-          style={this.bodyStyle}
+          bodyStyle={this.bodyStyle}
           showHeader={headerInBody}
+          flexHeight={flexHeight}
           onResize={this.handleBodyResize}
         />
-        {renderSlot(this.$slots, 'default')}
       </div>
     )
   }

@@ -1,9 +1,9 @@
-import commonVars from './_common'
-import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
 import type { Theme } from '../../_mixins'
+import type { ThemeCommonVars } from '../../_styles/common'
+import { commonLight } from '../../_styles/common'
+import commonVars from './_common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     primaryColor,
     textColor2,
@@ -57,7 +57,7 @@ export const self = (vars: ThemeCommonVars) => {
     textColorWarning: warningColor,
     textColorError: errorColor,
     codeTextColor: textColor2,
-    codeColor: codeColor,
+    codeColor,
     codeBorder: '1px solid #0000'
   }
 }

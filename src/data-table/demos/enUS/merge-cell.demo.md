@@ -1,4 +1,4 @@
-# Merge Cell
+# Merge cell
 
 Set colspan and rowspan by setting `colSpan` and `rowSpan` of column object. Set colspan in header by setting `titleColSpan` of column object.
 
@@ -12,10 +12,10 @@ Set colspan and rowspan by setting `colSpan` and `rowSpan` of column object. Set
 ```
 
 ```js
-import { h, defineComponent } from 'vue'
-import { NTag, NButton, useMessage } from 'naive-ui'
+import { NButton, NTag, useMessage } from 'naive-ui'
+import { defineComponent, h } from 'vue'
 
-const createColumns = ({ sendMail }) => {
+function createColumns({ sendMail }) {
   return [
     {
       title: 'Name',
@@ -35,7 +35,7 @@ const createColumns = ({ sendMail }) => {
     {
       title: 'Tags',
       key: 'tags',
-      render (row) {
+      render(row) {
         const tags = row.tags.map((tagKey) => {
           return h(
             NTag,
@@ -43,7 +43,8 @@ const createColumns = ({ sendMail }) => {
               style: {
                 marginRight: '6px'
               },
-              type: 'info'
+              type: 'info',
+              bordered: false
             },
             {
               default: () => tagKey
@@ -57,7 +58,7 @@ const createColumns = ({ sendMail }) => {
       title: 'Action',
       key: 'actions',
       rowSpan: (rowData, rowIndex) => (rowIndex === 0 ? 2 : 1),
-      render (row) {
+      render(row) {
         return h(
           NButton,
           {
@@ -71,38 +72,40 @@ const createColumns = ({ sendMail }) => {
   ]
 }
 
-const createData = () => [
-  {
-    key: 0,
-    name: 'John Brown',
-    age: 32,
-    address: 'New York No. 1 Lake Park',
-    tags: ['nice', 'developer']
-  },
-  {
-    key: 1,
-    name: 'Jim Green',
-    age: 42,
-    address: 'London No. 1 Lake Park',
-    tags: ['wow']
-  },
-  {
-    key: 2,
-    name: 'Joe Black',
-    age: 32,
-    address: 'Sidney No. 1 Lake Park',
-    tags: ['cool', 'teacher']
-  }
-]
+function createData() {
+  return [
+    {
+      key: 0,
+      name: 'John Brown',
+      age: 32,
+      address: 'New York No. 1 Lake Park',
+      tags: ['nice', 'developer']
+    },
+    {
+      key: 1,
+      name: 'Jim Green',
+      age: 42,
+      address: 'London No. 1 Lake Park',
+      tags: ['wow']
+    },
+    {
+      key: 2,
+      name: 'Joe Black',
+      age: 32,
+      address: 'Sidney No. 1 Lake Park',
+      tags: ['cool', 'teacher']
+    }
+  ]
+}
 
 export default defineComponent({
-  setup () {
+  setup() {
     const message = useMessage()
     return {
       data: createData(),
       columns: createColumns({
-        sendMail (rowData) {
-          message.info('send mail to ' + rowData.name)
+        sendMail(rowData) {
+          message.info(`send mail to ${rowData.name}`)
         }
       }),
       pagination: {

@@ -1,24 +1,11 @@
-<template>
-  <n-button
-    class="edit-button"
-    text
-    :size="size"
-    @click="handleClick"
-    :depth="depth"
-  >
-    <template #icon>
-      <n-icon>
-        <edit-icon />
-      </n-icon>
-    </template>
-  </n-button>
-</template>
-
-<script>
+<script lang="ts">
+import type { ButtonProps } from 'naive-ui'
+import type { PropType } from 'vue'
 import EditIcon from '@vicons/fluent/Compose16Regular.js'
-import { treeUrl } from './github-url'
+import { defineComponent } from 'vue'
+import { blobUrl } from './github-url'
 
-export default {
+export default defineComponent({
   name: 'EditOnGithubButton',
   components: {
     EditIcon
@@ -29,15 +16,42 @@ export default {
       required: true
     },
     text: Boolean,
-    size: String,
-    depth: String
+    quaternary: Boolean,
+    size: {
+      type: String as PropType<ButtonProps['size']>,
+      default: 'tiny'
+    }
   },
-  setup (props) {
+  setup(props) {
     return {
-      handleClick () {
-        window.open(treeUrl + props.relativeUrl, '_blank')
-      }
+      url: blobUrl + props.relativeUrl
     }
   }
-}
+})
 </script>
+
+<template>
+  <n-button
+    class="edit-button"
+    :theme-overrides="
+      quaternary
+        ? {
+          paddingTiny: '4px',
+          heightTiny: '14px',
+        }
+        : undefined
+    "
+    :quaternary="quaternary"
+    :text="!quaternary"
+    :size="size"
+    tag="a"
+    :href="url"
+    target="_blank"
+  >
+    <template #icon>
+      <n-icon>
+        <EditIcon />
+      </n-icon>
+    </template>
+  </n-button>
+</template>

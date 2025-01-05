@@ -1,34 +1,51 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { ThemeProps } from '../../../_mixins'
+import type { FormValidationStatus } from '../../../form/src/interface'
+import type { SelectBaseOption } from '../../../select/src/interface'
+import type { TagRef } from '../../../tag/src/Tag'
+import type {
+  RenderLabel,
+  RenderLabelImpl
+} from '../../select-menu/src/interface'
+import type { InternalSelectionTheme } from '../styles'
+import type { RenderTag } from './interface'
+import { getPadding } from 'seemly'
 import {
-  h,
+  computed,
+  type CSSProperties,
   defineComponent,
   Fragment,
-  PropType,
-  ref,
-  computed,
-  watch,
-  toRef,
+  h,
+  type InputHTMLAttributes,
   nextTick,
-  CSSProperties,
-  watchEffect,
-  onMounted
+  onMounted,
+  type PropType,
+  ref,
+  toRef,
+  type VNode,
+  watch,
+  watchEffect
 } from 'vue'
-import { VOverflow, VOverflowInst } from 'vueuc'
-import type { SelectBaseOption } from '../../../select/src/interface'
-import { NPopover } from '../../../popover'
+import { VOverflow, type VOverflowInst } from 'vueuc'
+import { useConfig, useRtl, useTheme, useThemeClass } from '../../../_mixins'
+import {
+  createKey,
+  getTitleAttribute,
+  render,
+  useOnResize,
+  Wrapper
+} from '../../../_utils'
+import { NPopover, type PopoverProps } from '../../../popover'
 import { NTag } from '../../../tag'
-import { useTheme } from '../../../_mixins'
-import type { ThemeProps } from '../../../_mixins'
-import { createKey } from '../../../_utils'
+import Suffix from '../../suffix'
 import { internalSelectionLight } from '../styles'
-import type { InternalSelectionTheme } from '../styles'
-import Suffix from './Suffix'
 import style from './styles/index.cssr'
-import type { TagRef } from '../../../tag/src/Tag'
 
 export interface InternalSelectionInst {
+  isComposing: boolean
   focus: () => void
   focusInput: () => void
+  blur: () => void
+  blurInput: () => void
   $el: HTMLElement
 }
 
@@ -47,7 +64,7 @@ export default defineComponent({
     active: Boolean,
     pattern: {
       type: String,
-      default: null
+      default: ''
     },
     placeholder: String,
     selectedOption: {
@@ -58,12 +75,17 @@ export default defineComponent({
       type: Array as PropType<SelectBaseOption[] | null>,
       default: null
     },
+    labelField: { type: String, default: 'label' },
+    valueField: {
+      type: String,
+      default: 'value'
+    },
     multiple: Boolean,
     filterable: Boolean,
     clearable: Boolean,
     disabled: Boolean,
     size: {
-      type: String as PropType<'small' | 'medium' | 'large'>,
+      type: String as PropType<'tiny' | 'small' | 'medium' | 'large'>,
       default: 'medium'
     },
     loading: Boolean,
@@ -72,18 +94,33 @@ export default defineComponent({
       type: Boolean,
       default: true
     },
+    inputProps: Object as PropType<InputHTMLAttributes>,
     focused: Boolean,
-    onKeyup: Function as PropType<(e: KeyboardEvent) => void>,
+    renderTag: Function as PropType<RenderTag>,
     onKeydown: Function as PropType<(e: KeyboardEvent) => void>,
     onClick: Function as PropType<(e: MouseEvent) => void>,
     onBlur: Function as PropType<(e: FocusEvent) => void>,
     onFocus: Function as PropType<(e: FocusEvent) => void>,
-    onDeleteOption: Function,
+    onDeleteOption: Function as PropType<(option: SelectBaseOption) => void>,
     maxTagCount: [String, Number] as PropType<number | 'responsive'>,
+    ellipsisTagPopoverProps: Object as PropType<PopoverProps>,
     onClear: Function as PropType<(e: MouseEvent) => void>,
-    onPatternInput: Function as PropType<(e: InputEvent) => void>
+    onPatternInput: Function as PropType<(e: InputEvent) => void>,
+    onPatternFocus: Function as PropType<(e: FocusEvent) => void>,
+    onPatternBlur: Function as PropType<(e: FocusEvent) => void>,
+    renderLabel: Function as PropType<RenderLabel>,
+    status: String as PropType<FormValidationStatus>,
+    inlineThemeDisabled: Boolean,
+    ignoreComposition: { type: Boolean, default: true },
+    onResize: Function as PropType<() => void>
   },
-  setup (props) {
+  setup(props) {
+    const { mergedClsPrefixRef, mergedRtlRef } = useConfig(props)
+    const rtlEnabledRef = useRtl(
+      'InternalSelection',
+      mergedRtlRef,
+      mergedClsPrefixRef
+    )
     const patternInputMirrorRef = ref<HTMLElement | null>(null)
     const patternInputRef = ref<HTMLElement | null>(null)
     const selfRef = ref<HTMLElement | null>(null)
@@ -100,7 +137,7 @@ export default defineComponent({
     const hoverRef = ref(false)
     const themeRef = useTheme(
       'InternalSelection',
-      'InternalSelection',
+      '-internal-selection',
       style,
       internalSelectionLight,
       props,
@@ -113,102 +150,129 @@ export default defineComponent({
     })
     const filterablePlaceholderRef = computed(() => {
       return props.selectedOption
-        ? props.selectedOption.label
+        ? props.renderTag
+          ? props.renderTag({
+              option: props.selectedOption,
+              handleClose: () => {}
+            })
+          : props.renderLabel
+            ? props.renderLabel(props.selectedOption as never, true)
+            : render(
+                props.selectedOption[props.labelField],
+                props.selectedOption,
+                true
+              )
         : props.placeholder
     })
     const labelRef = computed(() => {
       const option = props.selectedOption
-      if (!option) return undefined
-      return option.label
+      if (!option)
+        return undefined
+      return option[props.labelField]
     })
     const selectedRef = computed(() => {
       if (props.multiple) {
         return !!(
           Array.isArray(props.selectedOptions) && props.selectedOptions.length
         )
-      } else {
+      }
+      else {
         return props.selectedOption !== null
       }
     })
-    function syncMirrorWidth (): void {
+    function syncMirrorWidth(): void {
       const { value: patternInputMirrorEl } = patternInputMirrorRef
       if (patternInputMirrorEl) {
         const { value: patternInputEl } = patternInputRef
         if (patternInputEl) {
           patternInputEl.style.width = `${patternInputMirrorEl.offsetWidth}px`
           if (props.maxTagCount !== 'responsive') {
-            overflowRef.value?.sync()
+            overflowRef.value?.sync({
+              showAllItemsBeforeCalculate: false
+            })
           }
         }
       }
     }
-    function hideInputTag (): void {
+    function hideInputTag(): void {
       const { value: inputTagEl } = inputTagElRef
-      if (inputTagEl) inputTagEl.style.display = 'none'
+      if (inputTagEl)
+        inputTagEl.style.display = 'none'
     }
-    function showInputTag (): void {
+    function showInputTag(): void {
       const { value: inputTagEl } = inputTagElRef
-      if (inputTagEl) inputTagEl.style.display = 'inline-block'
+      if (inputTagEl)
+        inputTagEl.style.display = 'inline-block'
     }
     watch(toRef(props, 'active'), (value) => {
-      if (!value) hideInputTag()
+      if (!value)
+        hideInputTag()
     })
     watch(toRef(props, 'pattern'), () => {
       if (props.multiple) {
         void nextTick(syncMirrorWidth)
       }
     })
-    function doFocus (e: FocusEvent): void {
+    function doFocus(e: FocusEvent): void {
       const { onFocus } = props
-      if (onFocus) onFocus(e)
+      if (onFocus)
+        onFocus(e)
     }
-    function doBlur (e: FocusEvent): void {
+    function doBlur(e: FocusEvent): void {
       const { onBlur } = props
-      if (onBlur) onBlur(e)
+      if (onBlur)
+        onBlur(e)
     }
-    function doDeleteOption (value: SelectBaseOption): void {
+    function doDeleteOption(value: SelectBaseOption): void {
       const { onDeleteOption } = props
-      if (onDeleteOption) onDeleteOption(value)
+      if (onDeleteOption)
+        onDeleteOption(value)
     }
-    function doClear (e: MouseEvent): void {
+    function doClear(e: MouseEvent): void {
       const { onClear } = props
-      if (onClear) onClear(e)
+      if (onClear)
+        onClear(e)
     }
-    function doPatternInput (value: InputEvent): void {
+    function doPatternInput(value: InputEvent): void {
       const { onPatternInput } = props
-      if (onPatternInput) onPatternInput(value)
+      if (onPatternInput)
+        onPatternInput(value)
     }
-    function handleFocusin (e: FocusEvent): void {
+    function handleFocusin(e: FocusEvent): void {
       if (
-        !e.relatedTarget ||
-        !selfRef.value?.contains(e.relatedTarget as Node)
+        !e.relatedTarget
+        || !selfRef.value?.contains(e.relatedTarget as Node)
       ) {
         doFocus(e)
       }
     }
-    function handleFocusout (e: FocusEvent): void {
-      if (selfRef.value?.contains(e.relatedTarget as Node)) return
+    function handleFocusout(e: FocusEvent): void {
+      if (selfRef.value?.contains(e.relatedTarget as Node))
+        return
       doBlur(e)
     }
-    function handleClear (e: MouseEvent): void {
+    function handleClear(e: MouseEvent): void {
       doClear(e)
     }
-    function handleMouseEnter (): void {
+    function handleMouseEnter(): void {
       hoverRef.value = true
     }
-    function handleMouseLeave (): void {
+    function handleMouseLeave(): void {
       hoverRef.value = false
     }
-    function handleMouseDown (e: MouseEvent): void {
-      if (!props.active || !props.filterable) return
-      if (e.target === patternInputRef.value) return
+    function handleMouseDown(e: MouseEvent): void {
+      if (!props.active || !props.filterable)
+        return
+      if (e.target === patternInputRef.value)
+        return
       e.preventDefault()
     }
-    function handleDeleteOption (option: SelectBaseOption): void {
+    function handleDeleteOption(option: SelectBaseOption): void {
       doDeleteOption(option)
     }
-    function handlePatternKeyDown (e: KeyboardEvent): void {
-      if (e.code === 'Backspace') {
+    const isComposingRef = ref(false)
+    function handlePatternKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'Backspace' && !isComposingRef.value) {
         if (!props.pattern.length) {
           const { selectedOptions } = props
           if (selectedOptions?.length) {
@@ -217,8 +281,10 @@ export default defineComponent({
         }
       }
     }
-    const isCompositingRef = ref(false)
-    function handlePatternInputInput (e: InputEvent): void {
+    // the composition end is later than its input so we can cached the event
+    // and return the input event
+    let cachedInputEvent: InputEvent | null = null
+    function handlePatternInputInput(e: InputEvent): void {
       // we should sync mirror width here
       const { value: patternInputMirrorEl } = patternInputMirrorRef
       if (patternInputMirrorEl) {
@@ -226,99 +292,274 @@ export default defineComponent({
         patternInputMirrorEl.textContent = inputText
         syncMirrorWidth()
       }
-      if (!isCompositingRef.value) {
+      if (props.ignoreComposition) {
+        if (!isComposingRef.value) {
+          doPatternInput(e)
+        }
+        else {
+          cachedInputEvent = e
+        }
+      }
+      else {
         doPatternInput(e)
       }
     }
-    function handleCompositionStart (): void {
-      isCompositingRef.value = true
+    function handleCompositionStart(): void {
+      isComposingRef.value = true
     }
-    function handleCompositionEnd (e: CompositionEvent): void {
-      isCompositingRef.value = false
-      doPatternInput(e as InputEvent)
+    function handleCompositionEnd(): void {
+      isComposingRef.value = false
+      if (props.ignoreComposition) {
+        doPatternInput(cachedInputEvent!)
+      }
+      cachedInputEvent = null
     }
-    function handlePatternInputFocus (): void {
+    function handlePatternInputFocus(e: FocusEvent): void {
       patternInputFocusedRef.value = true
+      props.onPatternFocus?.(e)
     }
-    function handlePatternInputBlur (e: FocusEvent): void {
+    function handlePatternInputBlur(e: FocusEvent): void {
       patternInputFocusedRef.value = false
+      props.onPatternBlur?.(e)
     }
-    function focus (): void {
+    function blur(): void {
       if (props.filterable) {
         patternInputFocusedRef.value = false
-        const { value: patternInputWrapperEl } = patternInputWrapperRef
-        if (patternInputWrapperEl) patternInputWrapperEl.focus()
-      } else if (props.multiple) {
+        patternInputWrapperRef.value?.blur()
+        patternInputRef.value?.blur()
+      }
+      else if (props.multiple) {
         const { value: multipleEl } = multipleElRef
-        multipleEl?.focus()
-      } else {
+        multipleEl?.blur()
+      }
+      else {
         const { value: singleEl } = singleElRef
-        singleEl?.focus()
+        singleEl?.blur()
       }
     }
-    function focusInput (): void {
+    function focus(): void {
+      if (props.filterable) {
+        patternInputFocusedRef.value = false
+        patternInputWrapperRef.value?.focus()
+      }
+      else if (props.multiple) {
+        multipleElRef.value?.focus()
+      }
+      else {
+        singleElRef.value?.focus()
+      }
+    }
+    function focusInput(): void {
       const { value: patternInputEl } = patternInputRef
       if (patternInputEl) {
         showInputTag()
         patternInputEl.focus()
       }
     }
-    function blurInput (): void {
+    function blurInput(): void {
       const { value: patternInputEl } = patternInputRef
       if (patternInputEl) {
         patternInputEl.blur()
       }
     }
-    function updateCounter (count: number): void {
+    function updateCounter(count: number): void {
       const { value } = counterRef
       if (value) {
         value.setTextContent(`+${count}`)
       }
     }
-    function getCounter (): HTMLElement | null {
+    function getCounter(): HTMLElement | null {
       const { value } = counterWrapperRef
       return value
     }
-    function getTail (): HTMLElement | null {
+    function getTail(): HTMLElement | null {
       return patternInputRef.value
     }
     let enterTimerId: number | null = null
-    function clearEnterTimer (): void {
-      if (enterTimerId !== null) window.clearTimeout(enterTimerId)
+    function clearEnterTimer(): void {
+      if (enterTimerId !== null)
+        window.clearTimeout(enterTimerId)
     }
-    function handleMouseEnterCounter (): void {
-      if (props.disabled || props.active) return
+    function handleMouseEnterCounter(): void {
+      if (props.active)
+        return
       clearEnterTimer()
       enterTimerId = window.setTimeout(() => {
-        showTagsPopoverRef.value = true
+        if (selectedRef.value) {
+          showTagsPopoverRef.value = true
+        }
       }, 100)
     }
-    function handleMouseLeaveCounter (): void {
+    function handleMouseLeaveCounter(): void {
       clearEnterTimer()
     }
-    function onPopoverUpdateShow (show: boolean): void {
+    function onPopoverUpdateShow(show: boolean): void {
       if (!show) {
         clearEnterTimer()
         showTagsPopoverRef.value = false
       }
     }
+    watch(selectedRef, (value) => {
+      if (!value) {
+        showTagsPopoverRef.value = false
+      }
+    })
     onMounted(() => {
       watchEffect(() => {
         const patternInputWrapperEl = patternInputWrapperRef.value
-        if (!patternInputWrapperEl) return
-        patternInputWrapperEl.tabIndex =
-          props.disabled || patternInputFocusedRef.value ? -1 : 0
+        if (!patternInputWrapperEl)
+          return
+        if (props.disabled) {
+          patternInputWrapperEl.removeAttribute('tabindex')
+        }
+        else {
+          patternInputWrapperEl.tabIndex = patternInputFocusedRef.value ? -1 : 0
+        }
       })
     })
+    useOnResize(selfRef, props.onResize)
+    const { inlineThemeDisabled } = props
+    const cssVarsRef = computed(() => {
+      const { size } = props
+      const {
+        common: { cubicBezierEaseInOut },
+        self: {
+          fontWeight,
+          borderRadius,
+          color,
+          placeholderColor,
+          textColor,
+          paddingSingle,
+          paddingMultiple,
+          caretColor,
+          colorDisabled,
+          textColorDisabled,
+          placeholderColorDisabled,
+          colorActive,
+          boxShadowFocus,
+          boxShadowActive,
+          boxShadowHover,
+          border,
+          borderFocus,
+          borderHover,
+          borderActive,
+          arrowColor,
+          arrowColorDisabled,
+          loadingColor,
+          // form warning
+          colorActiveWarning,
+          boxShadowFocusWarning,
+          boxShadowActiveWarning,
+          boxShadowHoverWarning,
+          borderWarning,
+          borderFocusWarning,
+          borderHoverWarning,
+          borderActiveWarning,
+          // form error
+          colorActiveError,
+          boxShadowFocusError,
+          boxShadowActiveError,
+          boxShadowHoverError,
+          borderError,
+          borderFocusError,
+          borderHoverError,
+          borderActiveError,
+          // clear
+          clearColor,
+          clearColorHover,
+          clearColorPressed,
+          clearSize,
+          // arrow
+          arrowSize,
+          [createKey('height', size)]: height,
+          [createKey('fontSize', size)]: fontSize
+        }
+      } = themeRef.value
+
+      const paddingSingleDiscrete = getPadding(paddingSingle)
+      const paddingMultipleDiscrete = getPadding(paddingMultiple)
+
+      return {
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-border': border,
+        '--n-border-active': borderActive,
+        '--n-border-focus': borderFocus,
+        '--n-border-hover': borderHover,
+        '--n-border-radius': borderRadius,
+        '--n-box-shadow-active': boxShadowActive,
+        '--n-box-shadow-focus': boxShadowFocus,
+        '--n-box-shadow-hover': boxShadowHover,
+        '--n-caret-color': caretColor,
+        '--n-color': color,
+        '--n-color-active': colorActive,
+        '--n-color-disabled': colorDisabled,
+        '--n-font-size': fontSize,
+        '--n-height': height,
+        '--n-padding-single-top': paddingSingleDiscrete.top,
+        '--n-padding-multiple-top': paddingMultipleDiscrete.top,
+        '--n-padding-single-right': paddingSingleDiscrete.right,
+        '--n-padding-multiple-right': paddingMultipleDiscrete.right,
+        '--n-padding-single-left': paddingSingleDiscrete.left,
+        '--n-padding-multiple-left': paddingMultipleDiscrete.left,
+        '--n-padding-single-bottom': paddingSingleDiscrete.bottom,
+        '--n-padding-multiple-bottom': paddingMultipleDiscrete.bottom,
+        '--n-placeholder-color': placeholderColor,
+        '--n-placeholder-color-disabled': placeholderColorDisabled,
+        '--n-text-color': textColor,
+        '--n-text-color-disabled': textColorDisabled,
+        '--n-arrow-color': arrowColor,
+        '--n-arrow-color-disabled': arrowColorDisabled,
+        '--n-loading-color': loadingColor,
+        // form warning
+        '--n-color-active-warning': colorActiveWarning,
+        '--n-box-shadow-focus-warning': boxShadowFocusWarning,
+        '--n-box-shadow-active-warning': boxShadowActiveWarning,
+        '--n-box-shadow-hover-warning': boxShadowHoverWarning,
+        '--n-border-warning': borderWarning,
+        '--n-border-focus-warning': borderFocusWarning,
+        '--n-border-hover-warning': borderHoverWarning,
+        '--n-border-active-warning': borderActiveWarning,
+        // form error
+        '--n-color-active-error': colorActiveError,
+        '--n-box-shadow-focus-error': boxShadowFocusError,
+        '--n-box-shadow-active-error': boxShadowActiveError,
+        '--n-box-shadow-hover-error': boxShadowHoverError,
+        '--n-border-error': borderError,
+        '--n-border-focus-error': borderFocusError,
+        '--n-border-hover-error': borderHoverError,
+        '--n-border-active-error': borderActiveError,
+        // clear
+        '--n-clear-size': clearSize,
+        '--n-clear-color': clearColor,
+        '--n-clear-color-hover': clearColorHover,
+        '--n-clear-color-pressed': clearColorPressed,
+        // arrow-size
+        '--n-arrow-size': arrowSize,
+        // font-weight
+        '--n-font-weight': fontWeight
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'internal-selection',
+          computed(() => {
+            return props.size[0]
+          }),
+          cssVarsRef,
+          props
+        )
+      : undefined
     return {
       mergedTheme: themeRef,
       mergedClearable: mergedClearableRef,
+      mergedClsPrefix: mergedClsPrefixRef,
+      rtlEnabled: rtlEnabledRef,
       patternInputFocused: patternInputFocusedRef,
       filterablePlaceholder: filterablePlaceholderRef,
       label: labelRef,
       selected: selectedRef,
       showTagsPanel: showTagsPopoverRef,
-      isCompositing: isCompositingRef,
+      isComposing: isComposingRef,
       // dom ref
       counterRef,
       counterWrapperRef,
@@ -348,159 +589,96 @@ export default defineComponent({
       onPopoverUpdateShow,
       focus,
       focusInput,
+      blur,
       blurInput,
       updateCounter,
       getCounter,
       getTail,
-      cssVars: computed(() => {
-        const { size } = props
-        const {
-          common: { cubicBezierEaseInOut },
-          self: {
-            borderRadius,
-            color,
-            placeholderColor,
-            textColor,
-            paddingSingle,
-            caretColor,
-            colorDisabled,
-            textColorDisabled,
-            placeholderColorDisabled,
-            colorActive,
-            boxShadowFocus,
-            boxShadowActive,
-            boxShadowHover,
-            border,
-            borderFocus,
-            borderHover,
-            borderActive,
-            arrowColor,
-            arrowColorDisabled,
-            loadingColor,
-            // form warning
-            colorActiveWarning,
-            boxShadowFocusWarning,
-            boxShadowActiveWarning,
-            boxShadowHoverWarning,
-            borderWarning,
-            borderFocusWarning,
-            borderHoverWarning,
-            borderActiveWarning,
-            // form error
-            colorActiveError,
-            boxShadowFocusError,
-            boxShadowActiveError,
-            boxShadowHoverError,
-            borderError,
-            borderFocusError,
-            borderHoverError,
-            borderActiveError,
-            // clear
-            clearColor,
-            clearColorHover,
-            clearColorPressed,
-            clearSize,
-            [createKey('height', size)]: height,
-            [createKey('fontSize', size)]: fontSize
-          }
-        } = themeRef.value
-        return {
-          '--bezier': cubicBezierEaseInOut,
-          '--border': border,
-          '--border-active': borderActive,
-          '--border-focus': borderFocus,
-          '--border-hover': borderHover,
-          '--border-radius': borderRadius,
-          '--box-shadow-active': boxShadowActive,
-          '--box-shadow-focus': boxShadowFocus,
-          '--box-shadow-hover': boxShadowHover,
-          '--caret-color': caretColor,
-          '--color': color,
-          '--color-active': colorActive,
-          '--color-disabled': colorDisabled,
-          '--font-size': fontSize,
-          '--height': height,
-          '--padding-single': paddingSingle,
-          '--placeholder-color': placeholderColor,
-          '--placeholder-color-disabled': placeholderColorDisabled,
-          '--text-color': textColor,
-          '--text-color-disabled': textColorDisabled,
-          '--arrow-color': arrowColor,
-          '--arrow-color-disabled': arrowColorDisabled,
-          '--loading-color': loadingColor,
-          // form warning
-          '--color-active-warning': colorActiveWarning,
-          '--box-shadow-focus-warning': boxShadowFocusWarning,
-          '--box-shadow-active-warning': boxShadowActiveWarning,
-          '--box-shadow-hover-warning': boxShadowHoverWarning,
-          '--border-warning': borderWarning,
-          '--border-focus-warning': borderFocusWarning,
-          '--border-hover-warning': borderHoverWarning,
-          '--border-active-warning': borderActiveWarning,
-          // form error
-          '--color-active-error': colorActiveError,
-          '--box-shadow-focus-error': boxShadowFocusError,
-          '--box-shadow-active-error': boxShadowActiveError,
-          '--box-shadow-hover-error': boxShadowHoverError,
-          '--border-error': borderError,
-          '--border-focus-error': borderFocusError,
-          '--border-hover-error': borderHoverError,
-          '--border-active-error': borderActiveError,
-          // clear
-          '--clear-size': clearSize,
-          '--clear-color': clearColor,
-          '--clear-color-hover': clearColorHover,
-          '--clear-color-pressed': clearColorPressed
-        }
-      })
+      renderLabel: props.renderLabel as RenderLabelImpl,
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     const {
+      status,
       multiple,
       size,
       disabled,
       filterable,
       maxTagCount,
       bordered,
-      clsPrefix
+      clsPrefix,
+      ellipsisTagPopoverProps,
+      onRender,
+      renderTag,
+      renderLabel
     } = this
+    onRender?.()
     const maxTagCountResponsive = maxTagCount === 'responsive'
     const maxTagCountNumeric = typeof maxTagCount === 'number'
     const useMaxTagCount = maxTagCountResponsive || maxTagCountNumeric
     const suffix = (
-      <Suffix
-        clsPrefix={clsPrefix}
-        loading={this.loading}
-        showArrow={this.showArrow}
-        showClear={this.mergedClearable && this.selected}
-        onClear={this.handleClear}
-      />
+      <Wrapper>
+        {{
+          default: () => (
+            <Suffix
+              clsPrefix={clsPrefix}
+              loading={this.loading}
+              showArrow={this.showArrow}
+              showClear={this.mergedClearable && this.selected}
+              onClear={this.handleClear}
+            >
+              {{
+                default: () => this.$slots.arrow?.()
+              }}
+            </Suffix>
+          )
+        }}
+      </Wrapper>
     )
-
     let body: JSX.Element
     if (multiple) {
+      const { labelField } = this
       const createTag = (option: SelectBaseOption): JSX.Element => (
         <div
           class={`${clsPrefix}-base-selection-tag-wrapper`}
           key={option.value}
         >
-          <NTag
-            size={size}
-            closable
-            disabled={disabled}
-            internalStopClickPropagation
-            onClose={() => this.handleDeleteOption(option)}
-          >
-            {{ default: () => option.label }}
-          </NTag>
+          {renderTag ? (
+            renderTag({
+              option,
+              handleClose: () => {
+                this.handleDeleteOption(option)
+              }
+            })
+          ) : (
+            <NTag
+              size={size}
+              closable={!option.disabled}
+              disabled={disabled}
+              onClose={() => {
+                this.handleDeleteOption(option)
+              }}
+              internalCloseIsButtonTag={false}
+              internalCloseFocusable={false}
+            >
+              {{
+                default: () =>
+                  renderLabel
+                    ? renderLabel(option, true)
+                    : render(option[labelField], option, true)
+              }}
+            </NTag>
+          )}
         </div>
       )
-      const originalTags = (
-        maxTagCountNumeric
-          ? this.selectedOptions!.slice(0, maxTagCount as number)
+      const createOriginalTagNodes = (): VNode[] =>
+        (maxTagCountNumeric
+          ? this.selectedOptions!.slice(0, maxTagCount)
           : this.selectedOptions!
-      ).map(createTag)
+        ).map(createTag)
       const input = filterable ? (
         <div
           class={`${clsPrefix}-base-selection-input-tag`}
@@ -508,6 +686,7 @@ export default defineComponent({
           key="__input-tag__"
         >
           <input
+            {...this.inputProps}
             ref="patternInputRef"
             tabindex={-1}
             disabled={disabled}
@@ -525,7 +704,7 @@ export default defineComponent({
             ref="patternInputMirrorRef"
             class={`${clsPrefix}-base-selection-input-tag__mirror`}
           >
-            {this.pattern ? this.pattern : ''}
+            {this.pattern}
           </span>
         </div>
       ) : null
@@ -537,6 +716,7 @@ export default defineComponent({
               ref="counterWrapperRef"
             >
               <NTag
+                size={size}
                 ref="counterRef"
                 onMouseenter={this.handleMouseEnterCounter}
                 onMouseleave={this.handleMouseLeaveCounter}
@@ -547,7 +727,7 @@ export default defineComponent({
         : undefined
       let counter: JSX.Element | undefined
       if (maxTagCountNumeric) {
-        const rest = this.selectedOptions!.length - (maxTagCount as number)
+        const rest = this.selectedOptions!.length - maxTagCount
         if (rest > 0) {
           counter = (
             <div
@@ -555,6 +735,7 @@ export default defineComponent({
               key="__counter__"
             >
               <NTag
+                size={size}
                 ref="counterRef"
                 onMouseenter={this.handleMouseEnterCounter}
                 disabled={disabled}
@@ -581,7 +762,7 @@ export default defineComponent({
             }}
           >
             {{
-              default: () => originalTags,
+              default: createOriginalTagNodes,
               counter: renderCounter,
               tail: () => input
             }}
@@ -598,21 +779,21 @@ export default defineComponent({
             }}
           >
             {{
-              default: () => originalTags,
+              default: createOriginalTagNodes,
               counter: renderCounter
             }}
           </VOverflow>
         )
-      ) : maxTagCountNumeric ? (
-        originalTags.concat(counter as JSX.Element)
+      ) : maxTagCountNumeric && counter ? (
+        createOriginalTagNodes().concat(counter)
       ) : (
-        originalTags
+        createOriginalTagNodes()
       )
       const renderPopover = useMaxTagCount
         ? (): JSX.Element => (
             <div class={`${clsPrefix}-base-selection-popover`}>
               {maxTagCountResponsive
-                ? originalTags
+                ? createOriginalTagNodes()
                 : this.selectedOptions!.map(createTag)}
             </div>
           )
@@ -626,138 +807,161 @@ export default defineComponent({
             width: 'trigger',
             onUpdateShow: this.onPopoverUpdateShow,
             theme: this.mergedTheme.peers.Popover,
-            themeOverrides: this.mergedTheme.peerOverrides.Popover
+            themeOverrides: this.mergedTheme.peerOverrides.Popover,
+            ...ellipsisTagPopoverProps
           } as const)
         : null
-      const placeholder =
-        !this.selected && !this.pattern && !this.isCompositing ? (
-          <div class={`${clsPrefix}-base-selection-placeholder`}>
+      const showPlaceholder = this.selected
+        ? false
+        : this.active
+          ? !this.pattern && !this.isComposing
+          : true
+      const placeholder = showPlaceholder ? (
+        <div
+          class={`${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`}
+        >
+          <div class={`${clsPrefix}-base-selection-placeholder__inner`}>
             {this.placeholder}
           </div>
-        ) : null
+        </div>
+      ) : null
+      const popoverTrigger = filterable ? (
+        <div
+          ref="patternInputWrapperRef"
+          class={`${clsPrefix}-base-selection-tags`}
+        >
+          {tags}
+          {maxTagCountResponsive ? null : input}
+          {suffix}
+        </div>
+      ) : (
+        <div
+          ref="multipleElRef"
+          class={`${clsPrefix}-base-selection-tags`}
+          tabindex={disabled ? undefined : 0}
+        >
+          {tags}
+          {suffix}
+        </div>
+      )
+      body = (
+        <>
+          {useMaxTagCount ? (
+            <NPopover
+              {...popoverProps}
+              scrollable
+              style="max-height: calc(var(--v-target-height) * 6.6);"
+            >
+              {{
+                trigger: () => popoverTrigger,
+                default: renderPopover
+              }}
+            </NPopover>
+          ) : (
+            popoverTrigger
+          )}
+          {placeholder}
+        </>
+      )
+    }
+    else {
       if (filterable) {
-        const popoverTrigger = (
+        const hasInput = this.pattern || this.isComposing
+        const showPlaceholder = this.active ? !hasInput : !this.selected
+        const showSelectedLabel = this.active ? false : this.selected
+        body = (
           <div
             ref="patternInputWrapperRef"
-            class={`${clsPrefix}-base-selection-tags`}
+            class={`${clsPrefix}-base-selection-label`}
+            title={
+              this.patternInputFocused
+                ? undefined
+                : getTitleAttribute(this.label)
+            }
           >
-            {tags}
-            {maxTagCountResponsive ? null : input}
-            {suffix}
-          </div>
-        )
-        body = (
-          <>
-            {useMaxTagCount ? (
-              <NPopover {...popoverProps}>
-                {{
-                  trigger: () => popoverTrigger,
-                  default: renderPopover
-                }}
-              </NPopover>
-            ) : (
-              popoverTrigger
-            )}
-            {placeholder}
-          </>
-        )
-      } else {
-        const popoverTrigger = (
-          <div
-            ref="multipleElRef"
-            class={`${clsPrefix}-base-selection-tags`}
-            tabindex={disabled ? undefined : 0}
-          >
-            {tags}
-            {suffix}
-          </div>
-        )
-        body = (
-          <>
-            {useMaxTagCount ? (
-              <NPopover {...popoverProps}>
-                {{
-                  trigger: () => popoverTrigger,
-                  default: renderPopover
-                }}
-              </NPopover>
-            ) : (
-              popoverTrigger
-            )}
-            {placeholder}
-          </>
-        )
-      }
-    } else {
-      if (filterable) {
-        const showPlaceholder =
-          !this.pattern &&
-          (this.active || !this.selected) &&
-          !this.isCompositing
-        body = (
-          <>
-            <div
-              ref="patternInputWrapperRef"
-              class={`${clsPrefix}-base-selection-label`}
-            >
-              <input
-                ref="patternInputRef"
-                class={`${clsPrefix}-base-selection-label__input`}
-                value={
-                  showPlaceholder
-                    ? ''
-                    : this.patternInputFocused && this.active
-                      ? this.pattern
-                      : String(this.label)
-                }
-                placeholder=""
-                readonly={
-                  !(!disabled && filterable && (this.active || this.autofocus))
-                }
-                disabled={disabled}
-                tabindex={-1}
-                autofocus={this.autofocus}
-                onFocus={this.handlePatternInputFocus}
-                onBlur={this.handlePatternInputBlur}
-                onInput={this.handlePatternInputInput as any}
-                onCompositionstart={this.handleCompositionStart}
-                onCompositionend={this.handleCompositionEnd}
-              />
-              {showPlaceholder ? (
-                <div class={`${clsPrefix}-base-selection-placeholder`}>
+            <input
+              {...this.inputProps}
+              ref="patternInputRef"
+              class={`${clsPrefix}-base-selection-input`}
+              value={this.active ? this.pattern : ''}
+              placeholder=""
+              readonly={disabled}
+              disabled={disabled}
+              tabindex={-1}
+              autofocus={this.autofocus}
+              onFocus={this.handlePatternInputFocus}
+              onBlur={this.handlePatternInputBlur}
+              onInput={this.handlePatternInputInput as any}
+              onCompositionstart={this.handleCompositionStart}
+              onCompositionend={this.handleCompositionEnd}
+            />
+            {showSelectedLabel ? (
+              <div
+                class={`${clsPrefix}-base-selection-label__render-label ${clsPrefix}-base-selection-overlay`}
+                key="input"
+              >
+                <div class={`${clsPrefix}-base-selection-overlay__wrapper`}>
+                  {renderTag
+                    ? renderTag({
+                        option: this.selectedOption!,
+                        handleClose: () => {}
+                      })
+                    : renderLabel
+                      ? renderLabel(this.selectedOption!, true)
+                      : render(this.label, this.selectedOption, true)}
+                </div>
+              </div>
+            ) : null}
+            {showPlaceholder ? (
+              <div
+                class={`${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`}
+                key="placeholder"
+              >
+                <div class={`${clsPrefix}-base-selection-overlay__wrapper`}>
                   {this.filterablePlaceholder}
                 </div>
-              ) : null}
-              {suffix}
-            </div>
-          </>
+              </div>
+            ) : null}
+            {suffix}
+          </div>
         )
-      } else {
+      }
+      else {
         body = (
-          <>
-            <div
-              ref="singleElRef"
-              class={`${clsPrefix}-base-selection-label`}
-              tabindex={this.disabled ? undefined : 0}
-            >
-              {this.label !== undefined ? (
-                <div
-                  class={`${clsPrefix}-base-selection-label__input`}
-                  key="input"
-                >
-                  {this.label}
+          <div
+            ref="singleElRef"
+            class={`${clsPrefix}-base-selection-label`}
+            tabindex={this.disabled ? undefined : 0}
+          >
+            {this.label !== undefined ? (
+              <div
+                class={`${clsPrefix}-base-selection-input`}
+                title={getTitleAttribute(this.label)}
+                key="input"
+              >
+                <div class={`${clsPrefix}-base-selection-input__content`}>
+                  {renderTag
+                    ? renderTag({
+                        option: this.selectedOption!,
+                        handleClose: () => {}
+                      })
+                    : renderLabel
+                      ? renderLabel(this.selectedOption!, true)
+                      : render(this.label, this.selectedOption, true)}
                 </div>
-              ) : (
-                <div
-                  class={`${clsPrefix}-base-selection-placeholder`}
-                  key="placeholder"
-                >
+              </div>
+            ) : (
+              <div
+                class={`${clsPrefix}-base-selection-placeholder ${clsPrefix}-base-selection-overlay`}
+                key="placeholder"
+              >
+                <div class={`${clsPrefix}-base-selection-placeholder__inner`}>
                   {this.placeholder}
                 </div>
-              )}
-              {suffix}
-            </div>
-          </>
+              </div>
+            )}
+            {suffix}
+          </div>
         )
       }
     }
@@ -766,6 +970,9 @@ export default defineComponent({
         ref="selfRef"
         class={[
           `${clsPrefix}-base-selection`,
+          this.rtlEnabled && `${clsPrefix}-base-selection--rtl`,
+          this.themeClass,
+          status && `${clsPrefix}-base-selection--${status}-status`,
           {
             [`${clsPrefix}-base-selection--active`]: this.active,
             [`${clsPrefix}-base-selection--selected`]:
@@ -782,7 +989,6 @@ export default defineComponent({
         onClick={this.onClick}
         onMouseenter={this.handleMouseEnter}
         onMouseleave={this.handleMouseLeave}
-        onKeyup={this.onKeyup}
         onKeydown={this.onKeydown}
         onFocusin={this.handleFocusin}
         onFocusout={this.handleFocusout}

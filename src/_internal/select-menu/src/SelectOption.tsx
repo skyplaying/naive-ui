@@ -1,27 +1,25 @@
+import type { TreeNode } from 'treemate'
+import type { SelectOption } from '../../../select/src/interface'
+import { useMemo } from 'vooks'
 import {
+  defineComponent,
   h,
   inject,
-  toRef,
-  defineComponent,
+  type PropType,
+  type Ref,
   Transition,
-  PropType,
-  VNode,
-  warn,
-  VNodeChild,
-  Ref
+  type VNode
 } from 'vue'
-import { internalSelectionMenuInjectionKey } from './SelectMenu'
-import { TreeNode } from 'treemate'
-import { useMemo } from 'vooks'
-import type { SelectBaseOption } from '../../../select/src/interface'
+import { mergeEventHandlers, render } from '../../../_utils'
+import { NBaseIcon } from '../../icon'
 import { CheckmarkIcon } from '../../icons'
-import NBaseIcon from '../../icon'
-import { render } from '../../../_utils'
-import { RenderLabelImpl } from './interface'
+import {
+  internalSelectionMenuInjectionKey,
+  type RenderLabelImpl,
+  type RenderOptionImpl
+} from './interface'
 
-const checkMarkIcon = h(CheckmarkIcon)
-
-function renderCheckMark (show: boolean, clsPrefix: string): VNode {
+function renderCheckMark(show: boolean, clsPrefix: string): VNode {
   return (
     <Transition name="fade-in-scale-up-transition">
       {{
@@ -32,7 +30,7 @@ function renderCheckMark (show: boolean, clsPrefix: string): VNode {
               class={`${clsPrefix}-base-select-option__check`}
             >
               {{
-                default: () => checkMarkIcon
+                default: () => h(CheckmarkIcon)
               }}
             </NBaseIcon>
           ) : null
@@ -49,118 +47,141 @@ export default defineComponent({
       required: true
     },
     tmNode: {
-      type: Object as PropType<TreeNode<SelectBaseOption>>,
+      type: Object as PropType<TreeNode<SelectOption>>,
       required: true
     }
   },
-  setup (props) {
-    if (__DEV__ && props.tmNode.rawNode.render) {
-      warn(
-        'select',
-        'render prop in select option is deprecated, please use `render-label` prop in `n-select`.'
-      )
-    }
+  setup(props) {
     const {
       valueRef,
       pendingTmNodeRef,
       multipleRef,
       valueSetRef,
       renderLabelRef,
+      renderOptionRef,
+      labelFieldRef,
+      valueFieldRef,
+      showCheckmarkRef,
+      nodePropsRef,
       handleOptionClick,
       handleOptionMouseEnter
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     } = inject(internalSelectionMenuInjectionKey)!
-    const rawNodeRef = toRef(props.tmNode, 'rawNode')
     const isPendingRef = useMemo(() => {
       const { value: pendingTmNode } = pendingTmNodeRef
-      if (!pendingTmNode) return false
+      if (!pendingTmNode)
+        return false
       return props.tmNode.key === pendingTmNode.key
     })
-    function handleClick (e: MouseEvent): void {
+    function handleClick(e: MouseEvent): void {
       const { tmNode } = props
-      if (tmNode.disabled) return
+      if (tmNode.disabled)
+        return
       handleOptionClick(e, tmNode)
     }
-    function handleMouseEnter (e: MouseEvent): void {
+    function handleMouseEnter(e: MouseEvent): void {
       const { tmNode } = props
-      if (tmNode.disabled) return
+      if (tmNode.disabled)
+        return
       handleOptionMouseEnter(e, tmNode)
     }
-    function handleMouseMove (e: MouseEvent): void {
+    function handleMouseMove(e: MouseEvent): void {
       const { tmNode } = props
       const { value: isPending } = isPendingRef
-      if (tmNode.disabled || isPending) return
+      if (tmNode.disabled || isPending)
+        return
       handleOptionMouseEnter(e, tmNode)
     }
     return {
       multiple: multipleRef,
-      rawNode: rawNodeRef,
       isGrouped: useMemo(() => {
         const { tmNode } = props
         const { parent } = tmNode
         return parent && parent.rawNode.type === 'group'
       }),
+      showCheckmark: showCheckmarkRef,
+      nodeProps: nodePropsRef,
       isPending: isPendingRef,
       isSelected: useMemo(() => {
         const { value } = valueRef
         const { value: multiple } = multipleRef
-        if (value === null) return false
-        const optionValue = rawNodeRef.value.value
+        if (value === null)
+          return false
+        const optionValue = props.tmNode.rawNode[
+          valueFieldRef.value
+        ] as NonNullable<SelectOption['value']>
         if (multiple) {
           const { value: valueSet } = valueSetRef
           return valueSet.has(optionValue)
-        } else {
+        }
+        else {
           return value === optionValue
         }
       }),
+      labelField: labelFieldRef,
       renderLabel: renderLabelRef as Ref<RenderLabelImpl | undefined>,
+      renderOption: renderOptionRef as Ref<RenderOptionImpl | undefined>,
       handleMouseMove,
       handleMouseEnter,
       handleClick
     }
   },
-  render () {
+  render() {
     const {
       clsPrefix,
-      rawNode,
+      tmNode: { rawNode },
       isSelected,
       isPending,
       isGrouped,
-      multiple,
+      showCheckmark,
+      nodeProps,
+      renderOption,
       renderLabel,
       handleClick,
       handleMouseEnter,
       handleMouseMove
     } = this
-    const showCheckMark = multiple && isSelected
-    const checkmark = renderCheckMark(showCheckMark, clsPrefix)
-    let children: VNodeChild[]
-    if (renderLabel) {
-      children = [renderLabel(rawNode, isSelected), checkmark]
-    } else {
-      children = rawNode.render
-        ? [rawNode.render(rawNode, isSelected), checkmark]
-        : [render(rawNode.label, rawNode, isSelected), checkmark]
-    }
-    return (
+    const checkmark = renderCheckMark(isSelected, clsPrefix)
+    const children = renderLabel
+      ? [renderLabel(rawNode, isSelected), showCheckmark && checkmark]
+      : [
+          render(
+            rawNode[this.labelField] as SelectOption['label'],
+            rawNode,
+            isSelected
+          ),
+          showCheckmark && checkmark
+        ]
+    const attrs = nodeProps?.(rawNode)
+    const node = (
       <div
+        {...attrs}
         class={[
           `${clsPrefix}-base-select-option`,
           rawNode.class,
+          attrs?.class,
           {
             [`${clsPrefix}-base-select-option--disabled`]: rawNode.disabled,
             [`${clsPrefix}-base-select-option--selected`]: isSelected,
             [`${clsPrefix}-base-select-option--grouped`]: isGrouped,
-            [`${clsPrefix}-base-select-option--pending`]: isPending
+            [`${clsPrefix}-base-select-option--pending`]: isPending,
+            [`${clsPrefix}-base-select-option--show-checkmark`]: showCheckmark
           }
         ]}
-        style={rawNode.style}
-        onClick={handleClick}
-        onMouseenter={handleMouseEnter}
-        onMousemove={handleMouseMove}
+        style={[attrs?.style || '', rawNode.style || '']}
+        onClick={mergeEventHandlers([handleClick, attrs?.onClick])}
+        onMouseenter={mergeEventHandlers([
+          handleMouseEnter,
+          attrs?.onMouseenter
+        ])}
+        onMousemove={mergeEventHandlers([handleMouseMove, attrs?.onMousemove])}
       >
-        {children}
+        <div class={`${clsPrefix}-base-select-option__content`}>{children}</div>
       </div>
     )
+    return rawNode.render
+      ? rawNode.render({ node, option: rawNode, selected: isSelected })
+      : renderOption
+        ? renderOption({ node, option: rawNode, selected: isSelected })
+        : node
   }
 })

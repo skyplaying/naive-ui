@@ -1,9 +1,11 @@
-import { mount } from '@vue/test-utils'
-import { NAvatar } from '../index'
-import { h, nextTick } from 'vue'
 import { CashOutline as CashIcon } from '@vicons/ionicons5'
+import { mount } from '@vue/test-utils'
+import { h, nextTick } from 'vue'
 import { NIcon } from '../../icon'
+import { NAvatar } from '../index'
 
+// Please note that resize observer doesn't work in JSDOM, so text transfrom
+// can't be tested.
 describe('n-avatar', () => {
   // mock offsetHeight offsetWidth
   const originalOffsetHeight = Object.getOwnPropertyDescriptor(
@@ -17,7 +19,7 @@ describe('n-avatar', () => {
 
   beforeAll(() => {
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-      get () {
+      get() {
         if (this.className === 'n-avatar__text') {
           return 80
         }
@@ -25,7 +27,7 @@ describe('n-avatar', () => {
       }
     })
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-      get () {
+      get() {
         if (this.className === 'n-avatar__text') {
           return 80
         }
@@ -49,20 +51,32 @@ describe('n-avatar', () => {
 
   it('size is string', () => {
     const wrapper = mount(NAvatar, { props: { size: 'medium' } })
-    expect(wrapper.attributes('style')).toContain('--size')
+    expect(wrapper.attributes('style')).toContain('--n-merged-size')
     expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
   })
 
   it('size is number', () => {
     const wrapper = mount(NAvatar, { props: { size: 50 } })
-    expect(wrapper.attributes('style')).toContain('--size: 50px;')
+    expect(wrapper.attributes('style')).toContain(
+      '--n-merged-size: var(--n-avatar-size-override, 50px);'
+    )
     expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
   })
 
   it('round avatar', () => {
     const wrapper = mount(NAvatar, { props: { round: true } })
-    expect(wrapper.attributes('style')).toContain('--border-radius: 50%;')
+    expect(wrapper.attributes('style')).toContain('--n-border-radius: 50%;')
     expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
+  })
+
+  it('bordered avatar', () => {
+    const wrapper = mount(NAvatar, { props: { bordered: true } })
+    expect(wrapper.attributes('style')).toContain('--n-border: 2px solid #fff;')
+    expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
   })
 
   it('custom style', () => {
@@ -71,6 +85,7 @@ describe('n-avatar', () => {
     })
     expect(wrapper.attributes('style')).toContain('background-color: red;')
     expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
   })
 
   it('image avatar', () => {
@@ -81,6 +96,7 @@ describe('n-avatar', () => {
     })
     expect(wrapper.find('img').exists()).toBe(true)
     expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
   })
 
   it('icon avatar', () => {
@@ -94,16 +110,17 @@ describe('n-avatar', () => {
     })
     expect(wrapper.find('i').classes()).toContain('n-icon')
     expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
   })
 
   it('avatar adjust text', async () => {
     const AdjustAvatar = {
-      data () {
+      data() {
         return {
           text: ''
         }
       },
-      render () {
+      render() {
         const { text } = this as any
         return <NAvatar size="medium">{{ default: () => text }}</NAvatar>
       }
@@ -113,9 +130,33 @@ describe('n-avatar', () => {
     await wrapper.setData({ text: 'adjust text' })
     await nextTick()
     expect(textNode.exists()).toBe(true)
-    expect(textNode.attributes('style')).toContain(
-      'transform: translateX(-50%) translateY(-50%) scale(1);'
-    )
     expect(wrapper.html()).toMatchSnapshot()
+    wrapper.unmount()
+  })
+
+  it('image avatar error handle when load failed', async () => {
+    const onError = jest.fn()
+    const wrapper = mount(NAvatar, {
+      props: {
+        src: 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
+        onError
+      }
+    })
+    await wrapper.find('img').trigger('error')
+    expect(onError).toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('should work with `objectFit` prop', () => {
+    const wrapper = mount(NAvatar, {
+      props: {
+        src: 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg',
+        objectFit: 'contain'
+      }
+    })
+    expect(wrapper.find('img').attributes('style')).toContain(
+      'object-fit: contain;'
+    )
+    wrapper.unmount()
   })
 })

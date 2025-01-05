@@ -1,27 +1,34 @@
+import type { ScrollbarInst } from '../../_internal'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import type { LogTheme } from '../styles'
+import { throttle } from 'lodash-es'
 import {
-  h,
-  Transition,
-  defineComponent,
   computed,
-  provide,
-  PropType,
+  defineComponent,
+  h,
   nextTick,
+  type PropType,
+  provide,
+  type Ref,
   ref,
   toRef,
-  InjectionKey,
-  Ref
+  Transition
 } from 'vue'
-import { throttle } from 'lodash-es'
-import { useTheme, useHljs, ThemeProps, useConfig } from '../../_mixins'
-import type { Hljs } from '../../_mixins'
-import type { ExtractPublicPropTypes } from '../../_utils'
+import { NScrollbar } from '../../_internal'
+import {
+  type Hljs,
+  type ThemeProps,
+  useConfig,
+  useHljs,
+  useTheme,
+  useThemeClass
+} from '../../_mixins'
 import { warn } from '../../_utils'
-import { NScrollbar } from '../../scrollbar'
-import type { ScrollbarInst } from '../../scrollbar'
 import { NCode } from '../../code'
-import { logLight, LogTheme } from '../styles'
-import NLogLoader from './LogLoader'
+import { logLight } from '../styles'
+import { logInjectionKey } from './context'
 import NLogLine from './LogLine'
+import NLogLoader from './LogLoader'
 import style from './styles/index.cssr'
 
 export interface LogInjection {
@@ -31,18 +38,18 @@ export interface LogInjection {
   mergedHljsRef: Ref<Hljs | undefined>
 }
 
-export const logInjectionKey: InjectionKey<LogInjection> = Symbol('log')
+export interface LogInst {
+  scrollTo: ((options: {
+    silent?: boolean
+    position: 'top' | 'bottom'
+  }) => void) &
+  ((options: { silent?: boolean, top: number }) => void)
+}
 
-const logProps = {
+export const logProps = {
   ...(useTheme.props as ThemeProps<LogTheme>),
-  loading: {
-    type: Boolean,
-    default: false
-  },
-  trim: {
-    type: Boolean,
-    default: false
-  },
+  loading: Boolean,
+  trim: Boolean,
   log: String,
   fontSize: {
     type: Number,
@@ -69,10 +76,7 @@ const logProps = {
     type: Number,
     default: 0
   },
-  hljs: {
-    type: Object,
-    default: undefined
-  },
+  hljs: Object,
   onReachTop: Function as PropType<() => void>,
   onReachBottom: Function as PropType<() => void>,
   onRequireMore: Function as PropType<(from: 'top' | 'bottom') => void>
@@ -83,15 +87,16 @@ export type LogProps = ExtractPublicPropTypes<typeof logProps>
 export default defineComponent({
   name: 'Log',
   props: logProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
-    const slientRef = ref(false)
+  setup(props) {
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
+    const silentRef = ref(false)
     const highlightRef = computed(() => {
       return props.language !== undefined
     })
     const styleHeightRef = computed(() => {
-      const lineHeight = Math.floor(props.fontSize * props.lineHeight)
-      return `calc(${props.rows * lineHeight}px)`
+      return `calc(${Math.round(
+        props.rows * props.lineHeight * props.fontSize
+      )}px)`
     })
     const mergedLinesRef = computed(() => {
       const { log } = props
@@ -103,18 +108,18 @@ export default defineComponent({
     const scrollbarRef = ref<ScrollbarInst | null>(null)
     const themeRef = useTheme(
       'Log',
-      'Log',
+      '-log',
       style,
       logLight,
       props,
       mergedClsPrefixRef
     )
-    function handleScroll (e: Event): void {
+    function handleScroll(e: Event): void {
       const container = e.target as HTMLElement
       const content = container.firstElementChild as HTMLElement
-      if (slientRef.value) {
+      if (silentRef.value) {
         void nextTick(() => {
-          slientRef.value = false
+          silentRef.value = false
         })
         return
       }
@@ -125,20 +130,24 @@ export default defineComponent({
       const scrollBottom = contentHeight - containerScrollTop - containerHeight
       if (scrollTop <= props.offsetTop) {
         const { onReachTop, onRequireMore } = props
-        if (onRequireMore) onRequireMore('top')
-        if (onReachTop) onReachTop()
+        if (onRequireMore)
+          onRequireMore('top')
+        if (onReachTop)
+          onReachTop()
       }
       if (scrollBottom <= props.offsetBottom) {
         const { onReachBottom, onRequireMore } = props
-        if (onRequireMore) onRequireMore('bottom')
-        if (onReachBottom) onReachBottom()
+        if (onRequireMore)
+          onRequireMore('bottom')
+        if (onReachBottom)
+          onReachBottom()
       }
     }
     const handleWheel = throttle(_handleWheel, 300)
-    function _handleWheel (e: WheelEvent): void {
-      if (slientRef.value) {
+    function _handleWheel(e: WheelEvent): void {
+      if (silentRef.value) {
         void nextTick(() => {
-          slientRef.value = false
+          silentRef.value = false
         })
         return
       }
@@ -149,108 +158,125 @@ export default defineComponent({
           const containerScrollTop = containerRef.scrollTop
           const contentHeight = contentRef.offsetHeight
           const scrollTop = containerScrollTop
-          const scrollBottom =
-            contentHeight - containerScrollTop - containerHeight
+          const scrollBottom
+            = contentHeight - containerScrollTop - containerHeight
           const deltaY = e.deltaY
           if (scrollTop === 0 && deltaY < 0) {
             const { onRequireMore } = props
-            if (onRequireMore) onRequireMore('top')
+            if (onRequireMore)
+              onRequireMore('top')
           }
           if (scrollBottom <= 0 && deltaY > 0) {
             const { onRequireMore } = props
-            if (onRequireMore) onRequireMore('bottom')
+            if (onRequireMore)
+              onRequireMore('bottom')
           }
         }
       }
     }
-    function scrollTo (options: {
-      slient?: boolean
+    function scrollTo(options: {
+      silent?: boolean
       position: 'top' | 'bottom'
     }): void
-    function scrollTo (options: { slient?: boolean, top: number }): void
-    function scrollTo (options: {
-      slient?: boolean
+    function scrollTo(options: { silent?: boolean, top: number }): void
+    function scrollTo(options: {
+      silent?: boolean
       top?: number
       position?: 'top' | 'bottom'
     }): void {
       const { value: scrollbarInst } = scrollbarRef
-      if (!scrollbarInst) return
-      const { slient, top, position } = options
-      if (slient) {
-        slientRef.value = true
+      if (!scrollbarInst)
+        return
+      const { silent, top, position } = options
+      if (silent) {
+        silentRef.value = true
       }
       if (top !== undefined) {
         scrollbarInst.scrollTo({ left: 0, top })
-      } else if (position === 'bottom' || position === 'top') {
+      }
+      else if (position === 'bottom' || position === 'top') {
         scrollbarInst.scrollTo({ position })
       }
     }
     // deprecated
-    function scrollToTop (slient = false): void {
+    function scrollToTop(silent = false): void {
       warn(
         'log',
-        "`scrollToTop` is deprecated, please use `scrollTo({ position: 'top'})` instead."
+        '`scrollToTop` is deprecated, please use `scrollTo({ position: \'top\'})` instead.'
       )
       scrollTo({
         position: 'top',
-        slient
+        silent
       })
     }
-    function scrollToBottom (slient = false): void {
+    function scrollToBottom(silent = false): void {
       warn(
         'log',
-        "`scrollToTop` is deprecated, please use `scrollTo({ position: 'bottom'})` instead."
+        '`scrollToTop` is deprecated, please use `scrollTo({ position: \'bottom\'})` instead.'
       )
       scrollTo({
         position: 'bottom',
-        slient
+        silent
       })
     }
     provide(logInjectionKey, {
       languageRef: toRef(props, 'language'),
-      mergedHljsRef: useHljs(props),
+      mergedHljsRef: useHljs(props, highlightRef),
       trimRef: toRef(props, 'trim'),
       highlightRef
     })
+
+    const exportedMethods: LogInst = {
+      scrollTo
+    }
+
+    const cssVarsRef = computed(() => {
+      const {
+        self: {
+          loaderFontSize,
+          loaderTextColor,
+          loaderColor,
+          loaderBorder,
+          loadingColor
+        },
+        common: { cubicBezierEaseInOut }
+      } = themeRef.value
+      return {
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-loader-font-size': loaderFontSize,
+        '--n-loader-border': loaderBorder,
+        '--n-loader-color': loaderColor,
+        '--n-loader-text-color': loaderTextColor,
+        '--n-loading-color': loadingColor
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass('log', undefined, cssVarsRef, props)
+      : undefined
+
     return {
+      ...exportedMethods,
       mergedClsPrefix: mergedClsPrefixRef,
       scrollbarRef,
       mergedTheme: themeRef,
       styleHeight: styleHeightRef,
       mergedLines: mergedLinesRef,
-      scrollTo,
       scrollToTop,
       scrollToBottom,
       handleWheel,
       handleScroll,
-      cssVars: computed(() => {
-        const {
-          self: {
-            loaderFontSize,
-            loaderTextColor,
-            loaderColor,
-            loaderBorder,
-            loadingColor
-          },
-          common: { cubicBezierEaseInOut }
-        } = themeRef.value
-        return {
-          '--bezier': cubicBezierEaseInOut,
-          '--loader-font-size': loaderFontSize,
-          '--loader-border': loaderBorder,
-          '--loader-color': loaderColor,
-          '--loader-text-color': loaderTextColor,
-          '--loading-color': loadingColor
-        }
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
-    const { mergedClsPrefix, mergedTheme } = this
+  render() {
+    const { mergedClsPrefix, mergedTheme, onRender } = this
+    onRender?.()
     return h(
       'div',
       {
-        class: `${mergedClsPrefix}-log`,
+        class: [`${mergedClsPrefix}-log`, this.themeClass],
         style: [
           {
             lineHeight: this.lineHeight,
@@ -270,6 +296,8 @@ export default defineComponent({
           {{
             default: () => (
               <NCode
+                internalNoHighlight
+                internalFontSize={this.fontSize}
                 theme={mergedTheme.peers.Code}
                 themeOverrides={mergedTheme.peerOverrides.Code}
               >

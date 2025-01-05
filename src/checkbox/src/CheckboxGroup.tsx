@@ -1,61 +1,77 @@
-import {
-  h,
-  defineComponent,
-  provide,
-  PropType,
-  computed,
-  toRef,
-  ref,
-  InjectionKey,
-  Ref
-} from 'vue'
 import { useMergedState } from 'vooks'
+import {
+  computed,
+  type ComputedRef,
+  defineComponent,
+  h,
+  type PropType,
+  provide,
+  type Ref,
+  ref,
+  toRef,
+  watchEffect
+} from 'vue'
 import { useConfig, useFormItem } from '../../_mixins'
-import { warn, call, MaybeArray } from '../../_utils'
-import type { ExtractPublicPropTypes } from '../../_utils'
+import {
+  call,
+  createInjectionKey,
+  type ExtractPublicPropTypes,
+  type MaybeArray,
+  warnOnce
+} from '../../_utils'
 
 export interface CheckboxGroupInjection {
+  checkedCountRef: ComputedRef<number>
+  maxRef: Ref<number | undefined>
+  minRef: Ref<number | undefined>
   disabledRef: Ref<boolean>
   valueSetRef: Ref<Set<string | number>>
   mergedSizeRef: Ref<'small' | 'medium' | 'large'>
   toggleCheckbox: (checked: boolean, checkboxValue: string | number) => void
 }
 
-export const checkboxGroupInjectionKey: InjectionKey<CheckboxGroupInjection> = Symbol(
-  'checkboxGroup'
-)
+export const checkboxGroupInjectionKey
+  = createInjectionKey<CheckboxGroupInjection>('n-checkbox-group')
 
-const checkboxGroupProps = {
+export const checkboxGroupProps = {
+  min: Number,
+  max: Number,
   size: String as PropType<'small' | 'medium' | 'large'>,
   value: Array as PropType<Array<string | number> | null>,
   defaultValue: {
     type: Array as PropType<Array<string | number> | null>,
     default: null
   },
-  disabled: Boolean,
-  // eslint-disable-next-line vue/prop-name-casing
+  disabled: {
+    type: Boolean as PropType<boolean | undefined>,
+    default: undefined
+  },
   'onUpdate:value': [Function, Array] as PropType<
-  MaybeArray<(value: Array<string | number>) => void>
+    MaybeArray<
+      (
+        value: Array<string | number>,
+        meta: {
+          actionType: 'check' | 'uncheck'
+          value: string | number
+        }
+      ) => void
+    >
   >,
   onUpdateValue: [Function, Array] as PropType<
-  MaybeArray<(value: Array<string | number>) => void>
+    MaybeArray<
+      (
+        value: Array<string | number>,
+        meta: {
+          actionType: 'check' | 'uncheck'
+          value: string | number
+        }
+      ) => void
+    >
   >,
   // deprecated
-  onChange: {
-    type: [Function, Array] as PropType<
+  onChange: [Function, Array] as PropType<
     MaybeArray<(value: Array<string | number>) => void> | undefined
-    >,
-    validator: () => {
-      if (__DEV__) {
-        warn(
-          'checkbox-group',
-          '`on-change` is deprecated, please use `on-update:value` instead.'
-        )
-      }
-      return true
-    },
-    default: undefined
-  }
+  >
 } as const
 
 export type CheckboxGroupProps = ExtractPublicPropTypes<
@@ -65,22 +81,37 @@ export type CheckboxGroupProps = ExtractPublicPropTypes<
 export default defineComponent({
   name: 'CheckboxGroup',
   props: checkboxGroupProps,
-  setup (props) {
+  setup(props) {
+    if (__DEV__) {
+      watchEffect(() => {
+        if (props.onChange !== undefined) {
+          warnOnce(
+            'checkbox-group',
+            '`on-change` is deprecated, please use `on-update:value` instead.'
+          )
+        }
+      })
+    }
     const { mergedClsPrefixRef } = useConfig(props)
     const formItem = useFormItem(props)
+    const { mergedSizeRef, mergedDisabledRef } = formItem
     const uncontrolledValueRef = ref(props.defaultValue)
     const controlledValueRef = computed(() => props.value)
     const mergedValueRef = useMergedState(
       controlledValueRef,
       uncontrolledValueRef
     )
+    const checkedCount = computed(() => {
+      return mergedValueRef.value?.length || 0
+    })
+
     const valueSetRef = computed<Set<string | number>>(() => {
       if (Array.isArray(mergedValueRef.value)) {
         return new Set(mergedValueRef.value)
       }
       return new Set()
     })
-    function toggleCheckbox (
+    function toggleCheckbox(
       checked: boolean,
       checkboxValue: string | number
     ): void {
@@ -90,43 +121,91 @@ export default defineComponent({
         'onUpdate:value': _onUpdateValue,
         onUpdateValue
       } = props
+
       if (Array.isArray(mergedValueRef.value)) {
         const groupValue = Array.from(mergedValueRef.value)
-        const index = groupValue.findIndex((value) => value === checkboxValue)
+        const index = groupValue.findIndex(value => value === checkboxValue)
         if (checked) {
           if (!~index) {
             groupValue.push(checkboxValue)
-            if (onUpdateValue) call(onUpdateValue, groupValue)
-            if (_onUpdateValue) call(_onUpdateValue, groupValue)
+            if (onUpdateValue) {
+              call(onUpdateValue, groupValue, {
+                actionType: 'check',
+                value: checkboxValue
+              })
+            }
+            if (_onUpdateValue) {
+              call(_onUpdateValue, groupValue, {
+                actionType: 'check',
+                value: checkboxValue
+              })
+            }
             nTriggerFormInput()
             nTriggerFormChange()
             uncontrolledValueRef.value = groupValue
             // deprecated
-            if (onChange) call(onChange, groupValue)
+            if (onChange)
+              call(onChange, groupValue)
           }
-        } else {
+        }
+        else {
           if (~index) {
             groupValue.splice(index, 1)
-            if (onUpdateValue) call(onUpdateValue, groupValue)
-            if (_onUpdateValue) call(_onUpdateValue, groupValue)
-            if (onChange) call(onChange, groupValue) // deprecated
+            if (onUpdateValue) {
+              call(onUpdateValue, groupValue, {
+                actionType: 'uncheck',
+                value: checkboxValue
+              })
+            }
+            if (_onUpdateValue) {
+              call(_onUpdateValue, groupValue, {
+                actionType: 'uncheck',
+                value: checkboxValue
+              })
+            }
+            if (onChange)
+              call(onChange, groupValue) // deprecated
             uncontrolledValueRef.value = groupValue
             nTriggerFormInput()
             nTriggerFormChange()
           }
         }
-      } else {
+      }
+      else {
         if (checked) {
-          if (onUpdateValue) call(onUpdateValue, [checkboxValue])
-          if (_onUpdateValue) call(_onUpdateValue, [checkboxValue])
-          if (onChange) call(onChange, [checkboxValue]) // deprecated
+          if (onUpdateValue) {
+            call(onUpdateValue, [checkboxValue], {
+              actionType: 'check',
+              value: checkboxValue
+            })
+          }
+          if (_onUpdateValue) {
+            call(_onUpdateValue, [checkboxValue], {
+              actionType: 'check',
+              value: checkboxValue
+            })
+          }
+          if (onChange)
+            call(onChange, [checkboxValue]) // deprecated
           uncontrolledValueRef.value = [checkboxValue]
           nTriggerFormInput()
           nTriggerFormChange()
-        } else {
-          if (onUpdateValue) call(onUpdateValue, [])
-          if (_onUpdateValue) call(_onUpdateValue, [])
-          if (onChange) call(onChange, []) // deprecated
+        }
+        else {
+          if (onUpdateValue) {
+            call(onUpdateValue, [], {
+              actionType: 'uncheck',
+              value: checkboxValue
+            })
+          }
+          if (_onUpdateValue) {
+            call(_onUpdateValue, [], {
+              actionType: 'uncheck',
+              value: checkboxValue
+            })
+          }
+          if (onChange)
+            call(onChange, []) // deprecated
           uncontrolledValueRef.value = []
           nTriggerFormInput()
           nTriggerFormChange()
@@ -134,18 +213,23 @@ export default defineComponent({
       }
     }
     provide(checkboxGroupInjectionKey, {
-      valueSetRef: valueSetRef,
-      disabledRef: toRef(props, 'disabled'),
-      mergedSizeRef: formItem.mergedSizeRef,
+      checkedCountRef: checkedCount,
+      maxRef: toRef(props, 'max'),
+      minRef: toRef(props, 'min'),
+      valueSetRef,
+      disabledRef: mergedDisabledRef,
+      mergedSizeRef,
       toggleCheckbox
     })
     return {
       mergedClsPrefix: mergedClsPrefixRef
     }
   },
-  render () {
+  render() {
     return (
-      <div class={`${this.mergedClsPrefix}-checkbox-group`}>{this.$slots}</div>
+      <div class={`${this.mergedClsPrefix}-checkbox-group`} role="group">
+        {this.$slots}
+      </div>
     )
   }
 })

@@ -1,41 +1,46 @@
-/* eslint-disable @typescript-eslint/no-dynamic-delete */
+import type { MergedTheme, ThemeProps } from '../../_mixins'
+import type { NotificationOptions } from './NotificationEnvironment'
+import { createId } from 'seemly'
 import {
+  type CSSProperties,
+  defineComponent,
+  type ExtractPropTypes,
   Fragment,
   h,
-  reactive,
-  ref,
-  Teleport,
-  defineComponent,
-  PropType,
-  ExtractPropTypes,
+  type PropType,
   provide,
-  InjectionKey,
-  Ref,
-  renderSlot
+  reactive,
+  type Ref,
+  ref,
+  Teleport
 } from 'vue'
-import { createId } from 'seemly'
 import { useConfig, useTheme } from '../../_mixins'
-import type { MergedTheme, ThemeProps } from '../../_mixins'
-import { ExtractPublicPropTypes, omit } from '../../_utils'
-import { notificationLight, NotificationTheme } from '../styles'
-import NotificationContainer from './NotificationContainer'
-import NotificationEnvironment, {
-  notificationEnvOptions
-} from './NotificationEnvironment'
+import {
+  createInjectionKey,
+  type ExtractPublicPropTypes,
+  type Mutable,
+  omit
+} from '../../_utils'
+import { notificationLight, type NotificationTheme } from '../styles'
+import { notificationProviderInjectionKey } from './context'
+import { NotificationContainer } from './NotificationContainer'
+import { NotificationEnvironment } from './NotificationEnvironment'
 import style from './styles/index.cssr'
 
-type NotificationOptions = Partial<
-ExtractPropTypes<typeof notificationEnvOptions>
->
+export type NotificationPlacement =
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'top'
+  | 'bottom'
 
 export interface NotificationProviderInjection {
+  props: ExtractPropTypes<typeof notificationProviderProps>
   mergedClsPrefixRef: Ref<string>
   mergedThemeRef: Ref<MergedTheme<NotificationTheme>>
+  wipTransitionCountRef: Ref<number>
 }
-
-export const notificationProviderInjectionKey: InjectionKey<NotificationProviderInjection> = Symbol(
-  'notificationProvider'
-)
 
 type Create = (options: NotificationOptions) => NotificationReactive
 type TypedCreate = (
@@ -50,34 +55,44 @@ export interface NotificationApiInjection {
   error: TypedCreate
   /** @deprecated */
   open: Create
+  destroyAll: () => void
 }
 
 export type NotificationProviderInst = NotificationApiInjection
 
-export const notificationApiInjectionKey: InjectionKey<NotificationApiInjection> = Symbol(
-  'notificationApi'
-)
+export const notificationApiInjectionKey
+  = createInjectionKey<NotificationApiInjection>('n-notification-api')
 
-type NotificationReactive = {
+export type NotificationType = 'info' | 'success' | 'warning' | 'error'
+
+export type NotificationReactive = {
   readonly key: string
   readonly destroy: () => void
   /** @deprecated */
   readonly hide: () => void
   /** @deprecated */
   readonly deactivate: () => void
-} & NotificationOptions
+} & Mutable<NotificationOptions>
 
 interface NotificationRef {
   hide: () => void
 }
 
-const notificationProviderProps = {
+export const notificationProviderProps = {
   ...(useTheme.props as ThemeProps<NotificationTheme>),
+  containerClass: String,
+  containerStyle: [String, Object] as PropType<string | CSSProperties>,
   to: [String, Object] as PropType<string | HTMLElement>,
   scrollable: {
     type: Boolean,
     default: true
-  }
+  },
+  max: Number,
+  placement: {
+    type: String as PropType<NotificationPlacement>,
+    default: 'top-right'
+  },
+  keepAliveOnHover: Boolean
 }
 
 export type NotificationProviderProps = ExtractPublicPropTypes<
@@ -87,13 +102,20 @@ export type NotificationProviderProps = ExtractPublicPropTypes<
 export default defineComponent({
   name: 'NotificationProvider',
   props: notificationProviderProps,
-  setup (props) {
+  setup(props) {
     const { mergedClsPrefixRef } = useConfig(props)
     const notificationListRef = ref<NotificationReactive[]>([])
     const notificationRefs: Record<string, NotificationRef> = {}
-    function create (options: NotificationOptions): NotificationReactive {
+    const leavingKeySet = new Set<string>()
+    function create(options: NotificationOptions): NotificationReactive {
       const key = createId()
-      const destroy = (): void => notificationRefs[key].hide()
+      const destroy = (): void => {
+        leavingKeySet.add(key)
+        // If you push n + 1 message when max is n, notificationRefs[key] maybe not be set
+        if (notificationRefs[key]) {
+          notificationRefs[key].hide()
+        }
+      }
       const notificationReactive = reactive({
         ...options,
         key,
@@ -101,26 +123,45 @@ export default defineComponent({
         hide: destroy,
         deactivate: destroy
       })
+      const { max } = props
+      if (max && notificationListRef.value.length - leavingKeySet.size >= max) {
+        let someoneMountedRemoved = false
+        let index = 0
+        for (const notification of notificationListRef.value) {
+          if (!leavingKeySet.has(notification.key)) {
+            if (notificationRefs[notification.key]) {
+              notification.destroy()
+              someoneMountedRemoved = true
+            }
+            break
+          }
+          index++
+        }
+        if (!someoneMountedRemoved) {
+          notificationListRef.value.splice(index, 1)
+        }
+      }
       notificationListRef.value.push(notificationReactive)
       return notificationReactive
     }
     const apis = (['info', 'success', 'warning', 'error'] as const).map(
-      (type) => {
+      (type: NotificationType) => {
         return (options: Omit<NotificationOptions, 'type'>) =>
           create({ ...options, type })
       }
     )
-    function handleAfterLeave (key: string): void {
+    function handleAfterLeave(key: string): void {
+      leavingKeySet.delete(key)
       notificationListRef.value.splice(
         notificationListRef.value.findIndex(
-          (notification) => notification.key === key
+          notification => notification.key === key
         ),
         1
       )
     }
     const themeRef = useTheme(
       'Notification',
-      'Notification',
+      '-notification',
       style,
       notificationLight,
       props,
@@ -132,16 +173,25 @@ export default defineComponent({
       success: apis[1],
       warning: apis[2],
       error: apis[3],
-      open
+      open,
+      destroyAll
     }
+    const wipTransitionCountRef = ref(0)
     provide(notificationApiInjectionKey, api)
     provide(notificationProviderInjectionKey, {
+      props,
       mergedClsPrefixRef,
-      mergedThemeRef: themeRef
+      mergedThemeRef: themeRef,
+      wipTransitionCountRef
     })
     // deprecated
-    function open (options: NotificationOptions): NotificationReactive {
+    function open(options: NotificationOptions): NotificationReactive {
       return create(options)
+    }
+    function destroyAll(): void {
+      Object.values(notificationListRef.value).forEach((notification) => {
+        notification.hide()
+      })
     }
     return Object.assign(
       {
@@ -153,13 +203,21 @@ export default defineComponent({
       api
     )
   },
-  render () {
+  render() {
+    const { placement } = this
     return (
       <>
-        {renderSlot(this.$slots, 'default')}
+        {this.$slots.default?.()}
         {this.notificationList.length ? (
           <Teleport to={this.to ?? 'body'}>
-            <NotificationContainer scrollable={this.scrollable}>
+            <NotificationContainer
+              class={this.containerClass}
+              style={this.containerStyle}
+              scrollable={
+                this.scrollable && placement !== 'top' && placement !== 'bottom'
+              }
+              placement={placement}
+            >
               {{
                 default: () => {
                   return this.notificationList.map((notification) => {
@@ -170,7 +228,10 @@ export default defineComponent({
                             const refKey = notification.key
                             if (inst === null) {
                               delete this.notificationRefs[refKey]
-                            } else this.notificationRefs[refKey] = inst
+                            }
+                            else {
+                              this.notificationRefs[refKey] = inst
+                            }
                           }) as any
                         }
                         {...omit(notification, [
@@ -180,6 +241,11 @@ export default defineComponent({
                         ])}
                         internalKey={notification.key}
                         onInternalAfterLeave={this.handleAfterLeave}
+                        keepAliveOnHover={
+                          notification.keepAliveOnHover === undefined
+                            ? this.keepAliveOnHover
+                            : notification.keepAliveOnHover
+                        }
                       />
                     )
                   })

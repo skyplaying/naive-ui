@@ -1,56 +1,75 @@
-import {
-  computed,
-  inject,
-  ref,
-  nextTick,
-  PropType,
-  ExtractPropTypes
-} from 'vue'
 import { useKeyboard } from 'vooks'
 import {
-  Value,
+  computed,
+  type ExtractPropTypes,
+  inject,
+  nextTick,
+  type PropType,
+  ref
+} from 'vue'
+import {
   datePickerInjectionKey,
-  OnPanelUpdateValue,
-  OnPanelUpdateValueImpl
+  type DefaultTime,
+  type OnClose,
+  type OnPanelUpdateValue,
+  type OnPanelUpdateValueImpl,
+  type Shortcuts,
+  type Value
 } from '../interface'
 
-const DATE_FORMAT = 'yyyy-MM-dd'
 const TIME_FORMAT = 'HH:mm:ss'
 
 const usePanelCommonProps = {
   active: Boolean,
-  dateFormat: {
-    type: String,
-    default: DATE_FORMAT
+  dateFormat: String,
+  calendarDayFormat: String,
+  calendarHeaderYearFormat: String,
+  calendarHeaderMonthFormat: String,
+  calendarHeaderMonthYearSeparator: { type: String, required: true },
+  calendarHeaderMonthBeforeYear: {
+    type: Boolean,
+    default: undefined
   },
-  timeFormat: {
+  timerPickerFormat: {
     type: String,
-    default: TIME_FORMAT
+    value: TIME_FORMAT
   },
   value: {
     type: [Array, Number] as PropType<Value | null>,
     default: null
   },
-  onConfirm: Function,
-  onClose: Function,
+  shortcuts: Object as PropType<Shortcuts>,
+  defaultTime: [Number, String, Array] as PropType<DefaultTime>,
+  inputReadonly: Boolean,
+  onClear: Function,
+  onConfirm: Function as PropType<(value: Value | null) => void>,
+  onClose: Function as PropType<OnClose>,
   onTabOut: Function,
+  onKeydown: Function,
+  actions: Array as PropType<string[]>,
   onUpdateValue: {
     type: Function as PropType<OnPanelUpdateValue>,
     required: true
-  }
+  },
+  themeClass: String,
+  onRender: Function as PropType<(() => void) | undefined>,
+  panel: Boolean,
+  onNextMonth: Function as PropType<() => void>,
+  onPrevMonth: Function as PropType<() => void>,
+  onNextYear: Function as PropType<() => void>,
+  onPrevYear: Function as PropType<() => void>
 } as const
 
-type UsePanelCommonProps = ExtractPropTypes<typeof usePanelCommonProps>
+export type UsePanelCommonProps = ExtractPropTypes<typeof usePanelCommonProps>
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function usePanelCommon (props: UsePanelCommonProps) {
+function usePanelCommon(props: UsePanelCommonProps) {
   const {
     dateLocaleRef,
     timePickerSizeRef,
+    timePickerPropsRef,
     localeRef,
     mergedClsPrefixRef,
     mergedThemeRef
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   } = inject(datePickerInjectionKey)!
   const dateFnsOptionsRef = computed(() => {
     return {
@@ -59,34 +78,44 @@ function usePanelCommon (props: UsePanelCommonProps) {
   })
   const selfRef = ref<HTMLElement | null>(null)
   const keyboardState = useKeyboard()
-  function doConfirm (): void {
-    const { onConfirm } = props
-    if (onConfirm) onConfirm()
+  function doClear(): void {
+    const { onClear } = props
+    if (onClear)
+      onClear()
   }
-  function doUpdateValue (value: Value | null, doUpdate: boolean): void {
+  function doConfirm(): void {
+    const { onConfirm, value } = props
+    if (onConfirm)
+      onConfirm(value)
+  }
+  function doUpdateValue(value: Value | null, doUpdate: boolean): void {
     const { onUpdateValue } = props
     ;(onUpdateValue as OnPanelUpdateValueImpl)(value, doUpdate)
   }
-  function doClose (): void {
+  function doClose(disableUpdateOnClose: boolean = false): void {
     const { onClose } = props
-    if (onClose) onClose()
+    if (onClose)
+      onClose(disableUpdateOnClose)
   }
-  function doTabOut (): void {
+  function doTabOut(): void {
     const { onTabOut } = props
-    if (onTabOut) onTabOut()
+    if (onTabOut)
+      onTabOut()
   }
-  function handleClearClick (): void {
+  function handleClearClick(): void {
     doUpdateValue(null, true)
-    doClose()
+    doClose(true)
+    doClear()
   }
-  function handleFocusDetectorFocus (): void {
+  function handleFocusDetectorFocus(): void {
     doTabOut()
   }
-  function disableTransitionOneTick (): void {
-    if (props.active) {
+  function disableTransitionOneTick(): void {
+    if (props.active || props.panel) {
       void nextTick(() => {
         const { value: selfEl } = selfRef
-        if (!selfEl) return
+        if (!selfEl)
+          return
         const dateEls = selfEl.querySelectorAll('[data-n-date]')
         dateEls.forEach((el) => {
           el.classList.add('transition-disabled')
@@ -98,27 +127,56 @@ function usePanelCommon (props: UsePanelCommonProps) {
       })
     }
   }
-  function handlePanelKeyDown (e: KeyboardEvent): void {
-    if (e.code === 'Tab' && e.target === selfRef.value && keyboardState.shift) {
+  function handlePanelKeyDown(e: KeyboardEvent): void {
+    if (e.key === 'Tab' && e.target === selfRef.value && keyboardState.shift) {
       e.preventDefault()
       doTabOut()
     }
   }
-  function handlePanelFocus (e: FocusEvent): void {
+  function handlePanelFocus(e: FocusEvent): void {
     const { value: el } = selfRef
     if (
-      keyboardState.tab &&
-      e.target === el &&
-      el?.contains(e.relatedTarget as Node)
+      keyboardState.tab
+      && e.target === el
+      && el?.contains(e.relatedTarget as Node)
     ) {
       doTabOut()
     }
+  }
+  let cachedValue: Value | null = null
+  let cached = false
+  function cachePendingValue(): void {
+    cachedValue = props.value
+    cached = true
+  }
+  function clearPendingValue(): void {
+    cached = false
+  }
+  function restorePendingValue(): void {
+    if (cached) {
+      doUpdateValue(cachedValue, false)
+      cached = false
+    }
+  }
+  function getShortcutValue(
+    shortcut: Shortcuts[string]
+  ): number | [number, number] | readonly [number, number] {
+    if (typeof shortcut === 'function') {
+      return shortcut()
+    }
+    return shortcut
+  }
+
+  const showMonthYearPanel = ref(false)
+  function handleOpenQuickSelectMonthPanel(): void {
+    showMonthYearPanel.value = !showMonthYearPanel.value
   }
   return {
     mergedTheme: mergedThemeRef,
     mergedClsPrefix: mergedClsPrefixRef,
     dateFnsOptions: dateFnsOptionsRef,
     timePickerSize: timePickerSizeRef,
+    timePickerProps: timePickerPropsRef,
     selfRef,
     locale: localeRef,
     doConfirm,
@@ -129,10 +187,15 @@ function usePanelCommon (props: UsePanelCommonProps) {
     handleFocusDetectorFocus,
     disableTransitionOneTick,
     handlePanelKeyDown,
-    handlePanelFocus
+    handlePanelFocus,
+    cachePendingValue,
+    clearPendingValue,
+    restorePendingValue,
+    getShortcutValue,
+    handleShortcutMouseleave: restorePendingValue,
+    showMonthYearPanel,
+    handleOpenQuickSelectMonthPanel
   }
 }
 
-usePanelCommon.props = usePanelCommonProps
-
-export { usePanelCommon }
+export { usePanelCommon, usePanelCommonProps }

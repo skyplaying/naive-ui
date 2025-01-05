@@ -1,12 +1,12 @@
-import commonVariables from './_common'
+import type { InputTheme } from './light'
 import { changeColor } from 'seemly'
 import { commonDark } from '../../_styles/common'
-import type { InputTheme } from './light'
+import commonVariables from './_common'
 
 const inputDark: InputTheme = {
   name: 'Input',
   common: commonDark,
-  self (vars) {
+  self(vars) {
     const {
       textColor2,
       textColor3,
@@ -37,10 +37,13 @@ const inputDark: InputTheme = {
       iconColor,
       iconColorDisabled,
       iconColorHover,
-      iconColorPressed
+      iconColorPressed,
+      fontWeight
     } = vars
     return {
       ...commonVariables,
+      fontWeight,
+      countTextColorDisabled: textColorDisabled,
       countTextColor: textColor3,
       heightTiny,
       heightSmall,
@@ -71,7 +74,9 @@ const inputDark: InputTheme = {
       borderDisabled: '1px solid #0000',
       borderFocus: `1px solid ${primaryColorHover}`,
       boxShadowFocus: `0 0 8px 0 ${changeColor(primaryColor, { alpha: 0.3 })}`,
+      loadingColor: primaryColor,
       // warning
+      loadingColorWarning: warningColor,
       borderWarning: `1px solid ${warningColor}`,
       borderHoverWarning: `1px solid ${warningColorHover}`,
       colorFocusWarning: changeColor(warningColor, { alpha: 0.1 }),
@@ -81,6 +86,7 @@ const inputDark: InputTheme = {
       })}`,
       caretColorWarning: warningColor,
       // error
+      loadingColorError: errorColor,
       borderError: `1px solid ${errorColor}`,
       borderHoverError: `1px solid ${errorColorHover}`,
       colorFocusError: changeColor(errorColor, { alpha: 0.1 }),

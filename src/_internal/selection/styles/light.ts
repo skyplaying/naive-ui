@@ -1,11 +1,11 @@
+import type { ThemeCommonVars } from '../../../_styles/common'
 import { changeColor } from 'seemly'
+import { createTheme } from '../../../_mixins'
 import { commonLight } from '../../../_styles/common'
 import { popoverLight } from '../../../popover/styles'
-import type { ThemeCommonVars } from '../../../_styles/common'
 import commonVariables from './_common'
-import { createTheme } from '../../../_mixins'
 
-const self = (vars: ThemeCommonVars) => {
+function self(vars: ThemeCommonVars) {
   const {
     borderRadius,
     textColor2,
@@ -25,11 +25,29 @@ const self = (vars: ThemeCommonVars) => {
     clearColorHover,
     clearColorPressed,
     placeholderColor,
-    placeholderColorDisabled
+    placeholderColorDisabled,
+    fontSizeTiny,
+    fontSizeSmall,
+    fontSizeMedium,
+    fontSizeLarge,
+    heightTiny,
+    heightSmall,
+    heightMedium,
+    heightLarge,
+    fontWeight
   } = vars
   return {
     ...commonVariables,
-    borderRadius: borderRadius,
+    fontSizeTiny,
+    fontSizeSmall,
+    fontSizeMedium,
+    fontSizeLarge,
+    heightTiny,
+    heightSmall,
+    heightMedium,
+    heightLarge,
+    borderRadius,
+    fontWeight,
     // default
     textColor: textColor2,
     textColorDisabled,
@@ -42,7 +60,7 @@ const self = (vars: ThemeCommonVars) => {
     borderHover: `1px solid ${primaryColorHover}`,
     borderActive: `1px solid ${primaryColor}`,
     borderFocus: `1px solid ${primaryColorHover}`,
-    boxShadowHover: null,
+    boxShadowHover: 'none',
     boxShadowActive: `0 0 0 2px ${changeColor(primaryColor, {
       alpha: 0.2
     })}`,
@@ -58,7 +76,7 @@ const self = (vars: ThemeCommonVars) => {
     borderHoverWarning: `1px solid ${warningColorHover}`,
     borderActiveWarning: `1px solid ${warningColor}`,
     borderFocusWarning: `1px solid ${warningColorHover}`,
-    boxShadowHoverWarning: null,
+    boxShadowHoverWarning: 'none',
     boxShadowActiveWarning: `0 0 0 2px ${changeColor(warningColor, {
       alpha: 0.2
     })}`,
@@ -72,7 +90,7 @@ const self = (vars: ThemeCommonVars) => {
     borderHoverError: `1px solid ${errorColorHover}`,
     borderActiveError: `1px solid ${errorColor}`,
     borderFocusError: `1px solid ${errorColorHover}`,
-    boxShadowHoverError: null,
+    boxShadowHoverError: 'none',
     boxShadowActiveError: `0 0 0 2px ${changeColor(errorColor, {
       alpha: 0.2
     })}`,

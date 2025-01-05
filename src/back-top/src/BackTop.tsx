@@ -1,32 +1,39 @@
+import type { ThemeProps } from '../../_mixins'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import type { BackTopTheme } from '../styles'
+import { getScrollParent, unwrapElement } from 'seemly'
+import { useIsMounted, useMergedState } from 'vooks'
 import {
-  h,
-  ref,
   computed,
-  toRef,
-  watch,
-  nextTick,
   defineComponent,
-  renderSlot,
+  h,
   mergeProps,
-  Transition,
-  PropType,
+  nextTick,
+  onBeforeUnmount,
   onMounted,
-  onBeforeUnmount
+  type PropType,
+  ref,
+  toRef,
+  Transition,
+  watch,
+  watchEffect
 } from 'vue'
 import { VLazyTeleport } from 'vueuc'
-import { useIsMounted, useMergedState } from 'vooks'
-import { getScrollParent, unwrapElement } from 'seemly'
-import { useConfig, useTheme } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
 import { NBaseIcon } from '../../_internal'
-import { formatLength, warn } from '../../_utils'
-import type { ExtractPublicPropTypes } from '../../_utils'
+import { useConfig, useTheme, useThemeClass } from '../../_mixins'
+import {
+  formatLength,
+  isDocument,
+  lockHtmlScrollRightCompensationRef,
+  resolveSlot,
+  warn,
+  warnOnce
+} from '../../_utils'
 import { backTopLight } from '../styles'
-import type { BackTopTheme } from '../styles'
-import BackTopIcon from './BackTopIcon'
+import renderBackTopIcon from './BackTopIcon'
 import style from './styles/index.cssr'
 
-const backTopProps = {
+export const backTopProps = {
   ...(useTheme.props as ThemeProps<BackTopTheme>),
   show: {
     type: Boolean as PropType<boolean | undefined>,
@@ -49,47 +56,16 @@ const backTopProps = {
     default: 180
   },
   listenTo: [String, Object, Function] as PropType<
-  string | HTMLElement | (() => HTMLElement)
+    string | HTMLElement | Document | (() => HTMLElement | Document)
   >,
-  // eslint-disable-next-line vue/prop-name-casing
   'onUpdate:show': {
     type: Function,
     default: () => {}
   },
   // deprecated
-  target: {
-    type: Function as PropType<() => HTMLElement | undefined>,
-    validator: () => {
-      warn(
-        'back-top',
-        '`target` is deprecated, please use `listen-to` instead.'
-      )
-      return true
-    },
-    default: undefined
-  },
-  onShow: {
-    type: (Function as unknown) as PropType<(() => void) | undefined>,
-    validator: () => {
-      warn(
-        'back-top',
-        '`on-show` is deprecated, please use `on-update:show` instead.'
-      )
-      return true
-    },
-    default: undefined
-  },
-  onHide: {
-    type: (Function as unknown) as PropType<(() => void) | undefined>,
-    validator: () => {
-      warn(
-        'back-top',
-        '`on-hide` is deprecated, please use `on-update:show` instead.'
-      )
-      return true
-    },
-    default: undefined
-  }
+  target: Function as PropType<() => HTMLElement>,
+  onShow: Function as unknown as PropType<() => void>,
+  onHide: Function as unknown as PropType<() => void>
 } as const
 
 export type BackTopProps = ExtractPublicPropTypes<typeof backTopProps>
@@ -99,34 +75,65 @@ export default defineComponent({
   // make style applied to back-top button
   inheritAttrs: false,
   props: backTopProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  setup(props) {
+    if (__DEV__) {
+      watchEffect(() => {
+        if (props.target !== undefined) {
+          warnOnce(
+            'back-top',
+            '`target` is deprecated, please use `listen-to` instead.'
+          )
+        }
+        if (props.onShow !== undefined) {
+          warnOnce(
+            'back-top',
+            '`on-show` is deprecated, please use `on-update:show` instead.'
+          )
+        }
+        if (props.onHide !== undefined) {
+          warnOnce(
+            'back-top',
+            '`on-hide` is deprecated, please use `on-update:show` instead.'
+          )
+        }
+      })
+    }
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
 
     const scrollTopRef = ref<number | null>(null)
-    const uncontrolledShowRef = computed(() => {
-      if (scrollTopRef.value === null) return false
-      return scrollTopRef.value >= props.visibilityHeight
+    const uncontrolledShowRef = ref(false)
+    watchEffect(() => {
+      const { value: scrollTop } = scrollTopRef
+      if (scrollTop === null) {
+        uncontrolledShowRef.value = false
+        return
+      }
+      uncontrolledShowRef.value = scrollTop >= props.visibilityHeight
     })
     const DomInfoReadyRef = ref(false)
     watch(uncontrolledShowRef, (value) => {
       if (DomInfoReadyRef.value) {
-        props['onUpdate:show'](value)
+        props['onUpdate:show']?.(value)
       }
     })
     const controlledShowRef = toRef(props, 'show')
     const mergedShowRef = useMergedState(controlledShowRef, uncontrolledShowRef)
     const transitionDisabledRef = ref(true)
     const placeholderRef = ref<HTMLElement | null>(null)
-    const styleRef = computed((): {
-      right: string
-      bottom: string
-    } => {
-      return {
-        right: formatLength(props.right),
-        bottom: formatLength(props.bottom)
+    const styleRef = computed(
+      (): {
+        right: string
+        bottom: string
+      } => {
+        return {
+          right: `calc(${formatLength(props.right)} + ${
+            lockHtmlScrollRightCompensationRef.value
+          })`,
+          bottom: formatLength(props.bottom)
+        }
       }
-    })
-    let scrollElement: HTMLElement
+    )
+    let scrollElement: HTMLElement | Document
     let scrollListenerRegistered: boolean
     // deprecated
     watch(mergedShowRef, (value) => {
@@ -139,19 +146,20 @@ export default defineComponent({
     })
     const themeRef = useTheme(
       'BackTop',
-      'BackTop',
+      '-back-top',
       style,
       backTopLight,
       props,
       mergedClsPrefixRef
     )
-    function init (): void {
-      if (scrollListenerRegistered) return
+    function init(): void {
+      if (scrollListenerRegistered)
+        return
       scrollListenerRegistered = true
-      const scrollEl =
-        props.target?.() ||
-        unwrapElement(props.listenTo) ||
-        getScrollParent(placeholderRef.value)
+      const scrollEl
+        = props.target?.()
+        || unwrapElement(props.listenTo)
+        || getScrollParent(placeholderRef.value)
       if (!scrollEl) {
         if (__DEV__) {
           warn(
@@ -161,43 +169,36 @@ export default defineComponent({
         }
         return
       }
-      scrollElement = scrollEl
+      scrollElement
+        = scrollEl === document.documentElement ? document : scrollEl
       const { to } = props
       const target = typeof to === 'string' ? document.querySelector(to) : to
       if (__DEV__ && !target) {
         warn('back-top', 'Target is not found.')
       }
-      if (scrollEl) {
-        scrollEl.addEventListener('scroll', handleScroll)
-        handleScroll()
-      }
+      scrollElement.addEventListener('scroll', handleScroll)
+      handleScroll()
     }
-    function handleClick (e: MouseEvent): void {
-      if (scrollElement.nodeName === '#document') {
-        ;((scrollElement as unknown) as Document).documentElement.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        })
-      } else {
-        scrollElement.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        })
-      }
+    function handleClick(): void {
+      ;(isDocument(scrollElement)
+        ? document.documentElement
+        : scrollElement
+      ).scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
     }
-    function handleScroll (): void {
-      if (scrollElement.nodeName === '#document') {
-        scrollTopRef.value = ((scrollElement as unknown) as Document).documentElement.scrollTop
-      } else {
-        scrollTopRef.value = scrollElement.scrollTop
-      }
+    function handleScroll(): void {
+      scrollTopRef.value = (
+        isDocument(scrollElement) ? document.documentElement : scrollElement
+      ).scrollTop
       if (!DomInfoReadyRef.value) {
         void nextTick(() => {
           DomInfoReadyRef.value = true
         })
       }
     }
-    function handleAfterEnter (): void {
+    function handleAfterEnter(): void {
       transitionDisabledRef.value = false
     }
     onMounted(() => {
@@ -210,6 +211,43 @@ export default defineComponent({
       }
     })
 
+    const cssVarsRef = computed(() => {
+      const {
+        self: {
+          color,
+          boxShadow,
+          boxShadowHover,
+          boxShadowPressed,
+          iconColor,
+          iconColorHover,
+          iconColorPressed,
+          width,
+          height,
+          iconSize,
+          borderRadius,
+          textColor
+        },
+        common: { cubicBezierEaseInOut }
+      } = themeRef.value
+      return {
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-border-radius': borderRadius,
+        '--n-height': height,
+        '--n-width': width,
+        '--n-box-shadow': boxShadow,
+        '--n-box-shadow-hover': boxShadowHover,
+        '--n-box-shadow-pressed': boxShadowPressed,
+        '--n-color': color,
+        '--n-icon-size': iconSize,
+        '--n-icon-color': iconColor,
+        '--n-icon-color-hover': iconColorHover,
+        '--n-icon-color-pressed': iconColorPressed,
+        '--n-text-color': textColor
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass('back-top', undefined, cssVarsRef, props)
+      : undefined
     return {
       placeholderRef,
       style: styleRef,
@@ -223,43 +261,12 @@ export default defineComponent({
       handleAfterEnter,
       handleScroll,
       handleClick,
-      cssVars: computed(() => {
-        const {
-          self: {
-            color,
-            boxShadow,
-            boxShadowHover,
-            boxShadowPressed,
-            iconColor,
-            iconColorHover,
-            iconColorPressed,
-            width,
-            height,
-            iconSize,
-            borderRadius,
-            textColor
-          },
-          common: { cubicBezierEaseInOut }
-        } = themeRef.value
-        return {
-          '--bezier': cubicBezierEaseInOut,
-          '--border-radius': borderRadius,
-          '--height': height,
-          '--width': width,
-          '--box-shadow': boxShadow,
-          '--box-shadow-hover': boxShadowHover,
-          '--box-shadow-pressed': boxShadowPressed,
-          '--color': color,
-          '--icon-size': iconSize,
-          '--icon-color': iconColor,
-          '--icon-color-hover': iconColorHover,
-          '--icon-color-pressed': iconColorPressed,
-          '--text-color': textColor
-        }
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     const { mergedClsPrefix } = this
     return (
       <div
@@ -277,38 +284,29 @@ export default defineComponent({
                 onAfterEnter={this.handleAfterEnter}
               >
                 {{
-                  default: () =>
-                    this.mergedShow
+                  default: () => {
+                    this.onRender?.()
+                    return this.mergedShow
                       ? h(
-                        'div',
-                        mergeProps(this.$attrs, {
-                          class: [
+                          'div',
+                          mergeProps(this.$attrs, {
+                            class: [
                               `${mergedClsPrefix}-back-top`,
-                              {
-                                [`${mergedClsPrefix}-back-top--transition-disabled`]: this
-                                  .transitionDisabled
-                              }
-                          ],
-                          style: {
-                            ...this.style,
-                            ...this.cssVars
-                          },
-                          onClick: this.handleClick
-                        }),
-                        [
-                          renderSlot(
-                            this.$slots,
-                            'default',
-                            undefined,
-                            () => [
-                              <NBaseIcon clsPrefix={mergedClsPrefix}>
-                                {{ default: () => BackTopIcon }}
-                              </NBaseIcon>
-                            ]
-                          )
-                        ]
-                      )
+                              this.themeClass,
+                              this.transitionDisabled
+                              && `${mergedClsPrefix}-back-top--transition-disabled`
+                            ],
+                            style: [this.style, this.cssVars],
+                            onClick: this.handleClick
+                          }),
+                          resolveSlot(this.$slots.default, () => [
+                            <NBaseIcon clsPrefix={mergedClsPrefix}>
+                              {{ default: renderBackTopIcon }}
+                            </NBaseIcon>
+                          ])
+                        )
                       : null
+                  }
                 }}
               </Transition>
             )

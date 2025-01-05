@@ -1,71 +1,81 @@
+import type { ThemeProps } from '../../_mixins'
+import type { CheckboxTheme } from '../styles'
+import type {
+  CheckboxInst,
+  OnUpdateChecked,
+  OnUpdateCheckedImpl
+} from './interface'
+import { on } from 'evtd'
+import { createId } from 'seemly'
+import { useMemo, useMergedState } from 'vooks'
 import {
-  h,
-  defineComponent,
   computed,
+  type CSSProperties,
+  defineComponent,
+  h,
   inject,
+  type PropType,
   ref,
   toRef,
-  renderSlot,
-  PropType,
-  CSSProperties
+  watchEffect
 } from 'vue'
-import { useMergedState, useMemo } from 'vooks'
-import { useConfig, useFormItem, useTheme } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
 import { NIconSwitchTransition } from '../../_internal'
+import { useConfig, useFormItem, useTheme, useThemeClass } from '../../_mixins'
+import { useRtl } from '../../_mixins/use-rtl'
 import {
-  warn,
   call,
   createKey,
-  MaybeArray,
-  ExtractPublicPropTypes
+  type ExtractPublicPropTypes,
+  type MaybeArray,
+  resolveWrappedSlot,
+  warnOnce
 } from '../../_utils'
 import { checkboxLight } from '../styles'
-import type { CheckboxTheme } from '../styles'
-import CheckMark from './CheckMark'
-import LineMark from './LineMark'
 import { checkboxGroupInjectionKey } from './CheckboxGroup'
+import renderCheckMark from './CheckMark'
+import renderLineMark from './LineMark'
 import style from './styles/index.cssr'
 
-const checkboxProps = {
+export const checkboxProps = {
   ...(useTheme.props as ThemeProps<CheckboxTheme>),
   size: String as PropType<'small' | 'medium' | 'large'>,
   checked: {
+    type: [Boolean, String, Number] as PropType<
+      boolean | string | number | undefined
+    >,
+    default: undefined
+  },
+  defaultChecked: {
+    type: [Boolean, String, Number] as PropType<boolean | string | number>,
+    default: false
+  },
+  value: [String, Number] as PropType<string | number>,
+  disabled: {
     type: Boolean as PropType<boolean | undefined>,
     default: undefined
   },
-  defaultChecked: Boolean,
-  value: [String, Number] as PropType<string | number>,
-  disabled: Boolean,
   indeterminate: Boolean,
   label: String,
   focusable: {
     type: Boolean,
     default: true
   },
-  // eslint-disable-next-line vue/prop-name-casing
+  checkedValue: {
+    type: [Boolean, String, Number],
+    default: true
+  },
+  uncheckedValue: {
+    type: [Boolean, String, Number],
+    default: false
+  },
   'onUpdate:checked': [Function, Array] as PropType<
-  MaybeArray<(value: boolean) => void>
+    MaybeArray<OnUpdateChecked>
   >,
-  onUpdateChecked: [Function, Array] as PropType<
-  MaybeArray<(value: boolean) => void>
-  >,
+  onUpdateChecked: [Function, Array] as PropType<MaybeArray<OnUpdateChecked>>,
   // private
-  privateTableHeader: Boolean,
+  privateInsideTable: Boolean,
   // deprecated
-  onChange: {
-    type: [Function, Array] as PropType<
-    undefined | MaybeArray<(value: boolean) => void>
-    >,
-    validator: () => {
-      warn(
-        'checkbox',
-        '`on-change` is deprecated, please use `on-update:checked` instead.'
-      )
-      return true
-    },
-    default: undefined
-  }
+  onChange: [Function, Array] as PropType<MaybeArray<OnUpdateChecked>>
 }
 
 export type CheckboxProps = ExtractPublicPropTypes<typeof checkboxProps>
@@ -73,9 +83,21 @@ export type CheckboxProps = ExtractPublicPropTypes<typeof checkboxProps>
 export default defineComponent({
   name: 'Checkbox',
   props: checkboxProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  setup(props) {
+    if (__DEV__) {
+      watchEffect(() => {
+        if (props.onChange) {
+          warnOnce(
+            'checkbox',
+            '`on-change` is deprecated, please use `on-update:checked` instead.'
+          )
+        }
+      })
+    }
     const NCheckboxGroup = inject(checkboxGroupInjectionKey, null)
+    const selfRef = ref<HTMLDivElement | null>(null)
+    const { mergedClsPrefixRef, inlineThemeDisabled, mergedRtlRef }
+      = useConfig(props)
     const uncontrolledCheckedRef = ref(props.defaultChecked)
     const controlledCheckedRef = toRef(props, 'checked')
     const mergedCheckedRef = useMergedState(
@@ -89,17 +111,16 @@ export default defineComponent({
           return groupValueSet.has(props.value)
         }
         return false
-      } else {
-        return mergedCheckedRef.value
+      }
+      else {
+        return mergedCheckedRef.value === props.checkedValue
       }
     })
-    const mergedDisabledRef = computed(() => {
-      return props.disabled || NCheckboxGroup?.disabledRef.value
-    })
     const formItem = useFormItem(props, {
-      mergedSize (NFormItem) {
+      mergedSize(NFormItem) {
         const { size } = props
-        if (size !== undefined) return size
+        if (size !== undefined)
+          return size
         if (NCheckboxGroup) {
           const { value: mergedSize } = NCheckboxGroup.mergedSizeRef
           if (mergedSize !== undefined) {
@@ -108,131 +129,203 @@ export default defineComponent({
         }
         if (NFormItem) {
           const { mergedSize } = NFormItem
-          if (mergedSize !== undefined) return mergedSize.value
+          if (mergedSize !== undefined)
+            return mergedSize.value
         }
         return 'medium'
+      },
+      mergedDisabled(NFormItem) {
+        const { disabled } = props
+        if (disabled !== undefined)
+          return disabled
+        if (NCheckboxGroup) {
+          if (NCheckboxGroup.disabledRef.value)
+            return true
+          const {
+            maxRef: { value: max },
+            checkedCountRef
+          } = NCheckboxGroup
+          if (
+            max !== undefined
+            && checkedCountRef.value >= max
+            && !renderedCheckedRef.value
+          ) {
+            return true
+          }
+          const {
+            minRef: { value: min }
+          } = NCheckboxGroup
+          if (
+            min !== undefined
+            && checkedCountRef.value <= min
+            && renderedCheckedRef.value
+          ) {
+            return true
+          }
+        }
+        if (NFormItem) {
+          return NFormItem.disabled.value
+        }
+        return false
       }
     })
-    const { mergedSizeRef } = formItem
+    const { mergedDisabledRef, mergedSizeRef } = formItem
     const themeRef = useTheme(
       'Checkbox',
-      'Checkbox',
+      '-checkbox',
       style,
       checkboxLight,
       props,
       mergedClsPrefixRef
     )
-    function toggle (): void {
+    function toggle(e: MouseEvent | KeyboardEvent): void {
       if (NCheckboxGroup && props.value !== undefined) {
         NCheckboxGroup.toggleCheckbox(!renderedCheckedRef.value, props.value)
-      } else {
+      }
+      else {
         const {
           onChange,
           'onUpdate:checked': _onUpdateCheck,
           onUpdateChecked
         } = props
         const { nTriggerFormInput, nTriggerFormChange } = formItem
-        const nextChecked = !renderedCheckedRef.value
-        if (_onUpdateCheck) call(_onUpdateCheck, nextChecked)
-        if (onUpdateChecked) call(onUpdateChecked, nextChecked)
-        if (onChange) call(onChange, nextChecked) // deprecated
+        const nextChecked = renderedCheckedRef.value
+          ? props.uncheckedValue
+          : props.checkedValue
+        if (_onUpdateCheck) {
+          call(_onUpdateCheck as OnUpdateCheckedImpl, nextChecked, e)
+        }
+        if (onUpdateChecked) {
+          call(onUpdateChecked as OnUpdateCheckedImpl, nextChecked, e)
+        }
+        if (onChange)
+          call(onChange as OnUpdateCheckedImpl, nextChecked, e) // deprecated
         nTriggerFormInput()
         nTriggerFormChange()
         uncontrolledCheckedRef.value = nextChecked
       }
     }
-    function handleClick (): void {
+    function handleClick(e: MouseEvent): void {
       if (!mergedDisabledRef.value) {
-        toggle()
+        toggle(e)
       }
     }
-    function handleKeyUp (e: KeyboardEvent): void {
-      if (mergedDisabledRef.value) return
-      switch (e.code) {
-        case 'Space':
+    function handleKeyUp(e: KeyboardEvent): void {
+      if (mergedDisabledRef.value)
+        return
+      switch (e.key) {
+        case ' ':
         case 'Enter':
-          toggle()
+          toggle(e)
       }
     }
-    function handleKeyDown (e: KeyboardEvent): void {
-      switch (e.code) {
-        case 'Space':
+    function handleKeyDown(e: KeyboardEvent): void {
+      switch (e.key) {
+        case ' ':
           e.preventDefault()
       }
     }
-    return Object.assign(formItem, {
+    const exposedMethods: CheckboxInst = {
+      focus: () => {
+        selfRef.value?.focus()
+      },
+      blur: () => {
+        selfRef.value?.blur()
+      }
+    }
+    const rtlEnabledRef = useRtl('Checkbox', mergedRtlRef, mergedClsPrefixRef)
+    const cssVarsRef = computed(() => {
+      const { value: mergedSize } = mergedSizeRef
+      const {
+        common: { cubicBezierEaseInOut },
+        self: {
+          borderRadius,
+          color,
+          colorChecked,
+          colorDisabled,
+          colorTableHeader,
+          colorTableHeaderModal,
+          colorTableHeaderPopover,
+          checkMarkColor,
+          checkMarkColorDisabled,
+          border,
+          borderFocus,
+          borderDisabled,
+          borderChecked,
+          boxShadowFocus,
+          textColor,
+          textColorDisabled,
+          checkMarkColorDisabledChecked,
+          colorDisabledChecked,
+          borderDisabledChecked,
+          labelPadding,
+          labelLineHeight,
+          labelFontWeight,
+          [createKey('fontSize', mergedSize)]: fontSize,
+          [createKey('size', mergedSize)]: size
+        }
+      } = themeRef.value
+      return {
+        '--n-label-line-height': labelLineHeight,
+        '--n-label-font-weight': labelFontWeight,
+        '--n-size': size,
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-border-radius': borderRadius,
+        '--n-border': border,
+        '--n-border-checked': borderChecked,
+        '--n-border-focus': borderFocus,
+        '--n-border-disabled': borderDisabled,
+        '--n-border-disabled-checked': borderDisabledChecked,
+        '--n-box-shadow-focus': boxShadowFocus,
+        '--n-color': color,
+        '--n-color-checked': colorChecked,
+        '--n-color-table': colorTableHeader,
+        '--n-color-table-modal': colorTableHeaderModal,
+        '--n-color-table-popover': colorTableHeaderPopover,
+        '--n-color-disabled': colorDisabled,
+        '--n-color-disabled-checked': colorDisabledChecked,
+        '--n-text-color': textColor,
+        '--n-text-color-disabled': textColorDisabled,
+        '--n-check-mark-color': checkMarkColor,
+        '--n-check-mark-color-disabled': checkMarkColorDisabled,
+        '--n-check-mark-color-disabled-checked': checkMarkColorDisabledChecked,
+        '--n-font-size': fontSize,
+        '--n-label-padding': labelPadding
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'checkbox',
+          computed(() => mergedSizeRef.value[0]),
+          cssVarsRef,
+          props
+        )
+      : undefined
+    return Object.assign(formItem, exposedMethods, {
+      rtlEnabled: rtlEnabledRef,
+      selfRef,
       mergedClsPrefix: mergedClsPrefixRef,
       mergedDisabled: mergedDisabledRef,
       renderedChecked: renderedCheckedRef,
       mergedTheme: themeRef,
+      labelId: createId(),
       handleClick,
       handleKeyUp,
       handleKeyDown,
-      cssVars: computed(() => {
-        const { value: mergedSize } = mergedSizeRef
-        const {
-          common: { cubicBezierEaseInOut },
-          self: {
-            borderRadius,
-            color,
-            colorChecked,
-            colorDisabled,
-            colorTableHeader,
-            colorTableHeaderModal,
-            colorTableHeaderPopover,
-            checkMarkColor,
-            checkMarkColorDisabled,
-            border,
-            borderFocus,
-            borderDisabled,
-            borderChecked,
-            boxShadowFocus,
-            textColor,
-            textColorDisabled,
-            checkMarkColorDisabledChecked,
-            colorDisabledChecked,
-            borderDisabledChecked,
-            labelPadding,
-            [createKey('fontSize', mergedSize)]: fontSize,
-            [createKey('size', mergedSize)]: size
-          }
-        } = themeRef.value
-        return {
-          '--size': size,
-          '--bezier': cubicBezierEaseInOut,
-          '--border-radius': borderRadius,
-          '--border': border,
-          '--border-checked': borderChecked,
-          '--border-focus': borderFocus,
-          '--border-disabled': borderDisabled,
-          '--border-disabled-checked': borderDisabledChecked,
-          '--box-shadow-focus': boxShadowFocus,
-          '--color': color,
-          '--color-checked': colorChecked,
-          '--color-table-header': colorTableHeader,
-          '--color-table-header-modal': colorTableHeaderModal,
-          '--color-table-header-popover': colorTableHeaderPopover,
-          '--color-disabled': colorDisabled,
-          '--color-disabled-checked': colorDisabledChecked,
-          '--text-color': textColor,
-          '--text-color-disabled': textColorDisabled,
-          '--check-mark-color': checkMarkColor,
-          '--check-mark-color-disabled': checkMarkColorDisabled,
-          '--check-mark-color-disabled-checked': checkMarkColorDisabledChecked,
-          '--font-size': fontSize,
-          '--label-padding': labelPadding
-        }
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     })
   },
-  render () {
+  render() {
     const {
       $slots,
       renderedChecked,
       mergedDisabled,
       indeterminate,
-      privateTableHeader,
+      privateInsideTable,
       cssVars,
+      labelId,
       label,
       mergedClsPrefix,
       focusable,
@@ -240,48 +333,75 @@ export default defineComponent({
       handleKeyDown,
       handleClick
     } = this
+    this.onRender?.()
+    const labelNode = resolveWrappedSlot($slots.default, (children) => {
+      if (label || children) {
+        return (
+          <span class={`${mergedClsPrefix}-checkbox__label`} id={labelId}>
+            {label || children}
+          </span>
+        )
+      }
+      return null
+    })
     return (
       <div
+        ref="selfRef"
         class={[
           `${mergedClsPrefix}-checkbox`,
-          {
-            [`${mergedClsPrefix}-checkbox--checked`]: renderedChecked,
-            [`${mergedClsPrefix}-checkbox--disabled`]: mergedDisabled,
-            [`${mergedClsPrefix}-checkbox--indeterminate`]: indeterminate,
-            [`${mergedClsPrefix}-checkbox--table-header`]: privateTableHeader
-          }
+          this.themeClass,
+          this.rtlEnabled && `${mergedClsPrefix}-checkbox--rtl`,
+          renderedChecked && `${mergedClsPrefix}-checkbox--checked`,
+          mergedDisabled && `${mergedClsPrefix}-checkbox--disabled`,
+          indeterminate && `${mergedClsPrefix}-checkbox--indeterminate`,
+          privateInsideTable && `${mergedClsPrefix}-checkbox--inside-table`,
+          labelNode && `${mergedClsPrefix}-checkbox--show-label`
         ]}
         tabindex={mergedDisabled || !focusable ? undefined : 0}
+        role="checkbox"
+        aria-checked={indeterminate ? 'mixed' : renderedChecked}
+        aria-labelledby={labelId}
         style={cssVars as CSSProperties}
         onKeyup={handleKeyUp}
         onKeydown={handleKeyDown}
         onClick={handleClick}
+        onMousedown={() => {
+          on(
+            'selectstart',
+            window,
+            (e: Event): void => {
+              e.preventDefault()
+            },
+            {
+              once: true
+            }
+          )
+        }}
       >
-        <div class={`${mergedClsPrefix}-checkbox-box`}>
-          <NIconSwitchTransition>
-            {{
-              default: () =>
-                this.indeterminate ? (
-                  <div
-                    key="indeterminate"
-                    class={`${mergedClsPrefix}-checkbox-icon`}
-                  >
-                    {LineMark}
-                  </div>
-                ) : (
-                  <div key="check" class={`${mergedClsPrefix}-checkbox-icon`}>
-                    {CheckMark}
-                  </div>
-                )
-            }}
-          </NIconSwitchTransition>
-          <div class={`${mergedClsPrefix}-checkbox-box__border`} />
+        <div class={`${mergedClsPrefix}-checkbox-box-wrapper`}>
+          &nbsp;
+          <div class={`${mergedClsPrefix}-checkbox-box`}>
+            <NIconSwitchTransition>
+              {{
+                default: () =>
+                  this.indeterminate ? (
+                    <div
+                      key="indeterminate"
+                      class={`${mergedClsPrefix}-checkbox-icon`}
+                    >
+                      {renderLineMark()}
+                    </div>
+                  ) : (
+                    <div key="check" class={`${mergedClsPrefix}-checkbox-icon`}>
+                      {renderCheckMark()}
+                    </div>
+                  )
+              }}
+            </NIconSwitchTransition>
+            <div class={`${mergedClsPrefix}-checkbox-box__border`} />
+          </div>
         </div>
-        {label !== null || $slots.default ? (
-          <span class={`${mergedClsPrefix}-checkbox__label`}>
-            {renderSlot($slots, 'default', undefined, () => [label])}
-          </span>
-        ) : null}
+        {labelNode}
       </div>
     )
   }

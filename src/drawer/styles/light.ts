@@ -1,9 +1,9 @@
-import { commonLight } from '../../_styles/common'
 import type { ThemeCommonVars } from '../../_styles/common'
-import { scrollbarLight } from '../../scrollbar/styles'
+import { scrollbarLight } from '../../_internal/scrollbar/styles'
 import { createTheme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     modalColor,
     textColor1,
@@ -12,27 +12,37 @@ export const self = (vars: ThemeCommonVars) => {
     lineHeight,
     fontWeightStrong,
     dividerColor,
-    closeColor,
     closeColorHover,
-    closeColorPressed
+    closeColorPressed,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
+    borderRadius,
+    primaryColorHover
   } = vars
   return {
     bodyPadding: '16px 24px',
+    borderRadius,
     headerPadding: '16px 24px',
     footerPadding: '16px 24px',
     color: modalColor,
     textColor: textColor2,
     titleTextColor: textColor1,
-    titleFontSize: '20px',
+    titleFontSize: '18px',
     titleFontWeight: fontWeightStrong,
     boxShadow: boxShadow3,
     lineHeight,
     headerBorderBottom: `1px solid ${dividerColor}`,
     footerBorderTop: `1px solid ${dividerColor}`,
-    closeColor,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
+    closeSize: '22px',
+    closeIconSize: '18px',
     closeColorHover,
     closeColorPressed,
-    closeSize: '18px'
+    closeBorderRadius: borderRadius,
+    resizableTriggerColorHover: primaryColorHover
   }
 }
 

@@ -1,10 +1,10 @@
-import commonVariables from './_common'
+import type { Theme } from '../../_mixins'
+import type { ThemeCommonVars } from '../../_styles/common'
 import { changeColor } from 'seemly'
 import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
-import type { Theme } from '../../_mixins'
+import commonVariables from './_common'
 
-const self = (vars: ThemeCommonVars) => {
+function self(vars: ThemeCommonVars) {
   const {
     textColor2,
     textColor3,
@@ -37,10 +37,13 @@ const self = (vars: ThemeCommonVars) => {
     iconColor,
     iconColorDisabled,
     iconColorHover,
-    iconColorPressed
+    iconColorPressed,
+    fontWeight
   } = vars
   return {
     ...commonVariables,
+    fontWeight,
+    countTextColorDisabled: textColorDisabled,
     countTextColor: textColor3,
     heightTiny,
     heightSmall,
@@ -71,7 +74,9 @@ const self = (vars: ThemeCommonVars) => {
     borderDisabled: `1px solid ${borderColor}`,
     borderFocus: `1px solid ${primaryColorHover}`,
     boxShadowFocus: `0 0 0 2px ${changeColor(primaryColor, { alpha: 0.2 })}`,
+    loadingColor: primaryColor,
     // warning
+    loadingColorWarning: warningColor,
     borderWarning: `1px solid ${warningColor}`,
     borderHoverWarning: `1px solid ${warningColorHover}`,
     colorFocusWarning: inputColor,
@@ -81,6 +86,7 @@ const self = (vars: ThemeCommonVars) => {
     })}`,
     caretColorWarning: warningColor,
     // error
+    loadingColorError: errorColor,
     borderError: `1px solid ${errorColor}`,
     borderHoverError: `1px solid ${errorColorHover}`,
     colorFocusError: inputColor,

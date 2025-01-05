@@ -1,61 +1,65 @@
-import {
-  h,
-  ref,
-  defineComponent,
-  PropType,
-  provide,
-  computed,
-  VNode,
-  VNodeChild,
-  InjectionKey
-} from 'vue'
+import type { MenuMixedOption, TmNode } from './interface'
 import { useMemo } from 'vooks'
+import {
+  computed,
+  defineComponent,
+  h,
+  type PropType,
+  provide,
+  ref,
+  type VNode,
+  type VNodeChild
+} from 'vue'
 import { NFadeInExpandTransition } from '../../_internal'
+import { keysOf } from '../../_utils'
+
 import { NDropdown } from '../../dropdown'
+import { menuItemGroupInjectionKey, submenuInjectionKey } from './context'
 import NMenuOptionContent from './MenuOptionContent'
+import { useMenuChild } from './use-menu-child'
+import { useMenuChildProps } from './use-menu-child-props'
 import { itemRenderer } from './utils'
-import { useMenuChild, useMenuChildProps } from './use-menu-child'
-import type { SubmenuInjection } from './use-menu-child'
-import { TreeNode } from 'treemate'
-import { MenuGroupOption, MenuOption, TmNode } from './interface'
-import { menuItemGroupInjectionKey } from './MenuOptionGroup'
 
 export const submenuProps = {
   ...useMenuChildProps,
   rawNodes: {
-    type: Array as PropType<Array<MenuOption | MenuGroupOption>>,
+    type: Array as PropType<MenuMixedOption[]>,
     default: () => []
   },
   tmNodes: {
-    type: Array as PropType<Array<TreeNode<MenuOption, MenuGroupOption>>>,
+    type: Array as PropType<TmNode[]>,
     default: () => []
   },
   tmNode: {
     type: Object as PropType<TmNode>,
     required: true
   },
-  disabled: {
-    type: Boolean,
-    default: false
-  },
+  disabled: Boolean,
   icon: Function as PropType<() => VNodeChild>,
-  onClick: Function as PropType<() => void>
+  onClick: Function as PropType<() => void>,
+  domId: String,
+  virtualChildActive: {
+    type: Boolean,
+    default: undefined
+  },
+  isEllipsisPlaceholder: Boolean
 } as const
 
-export const submenuInjectionKey: InjectionKey<SubmenuInjection> =
-  Symbol('submenu')
+export const submenuPropKeys = keysOf(submenuProps)
 
-export default defineComponent({
+export const NSubmenu = defineComponent({
   name: 'Submenu',
   props: submenuProps,
-  setup (props) {
+  setup(props) {
     const MenuChild = useMenuChild(props)
     const { NMenu, NSubmenu } = MenuChild
-    const { props: menuProps, mergedCollapsedRef } = NMenu
+    const { props: menuProps, mergedCollapsedRef, mergedThemeRef } = NMenu
     const mergedDisabledRef = computed(() => {
       const { disabled } = props
-      if (NSubmenu?.mergedDisabledRef.value) return true
-      if (menuProps.disabled) return true
+      if (NSubmenu?.mergedDisabledRef.value)
+        return true
+      if (menuProps.disabled)
+        return true
       return disabled
     })
     const dropdownShowRef = ref(false)
@@ -64,11 +68,12 @@ export default defineComponent({
       mergedDisabledRef
     })
     provide(menuItemGroupInjectionKey, null)
-    function doClick (): void {
+    function doClick(): void {
       const { onClick } = props
-      if (onClick) onClick()
+      if (onClick)
+        onClick()
     }
-    function handleClick (): void {
+    function handleClick(): void {
       if (!mergedDisabledRef.value) {
         if (!mergedCollapsedRef.value) {
           NMenu.toggleExpand(props.internalKey)
@@ -76,10 +81,12 @@ export default defineComponent({
         doClick()
       }
     }
-    function handlePopoverShowChange (value: boolean): void {
+    function handlePopoverShowChange(value: boolean): void {
       dropdownShowRef.value = value
     }
     return {
+      menuProps,
+      mergedTheme: mergedThemeRef,
       doSelect: NMenu.doSelect,
       inverted: NMenu.invertedRef,
       isHorizontal: NMenu.isHorizontalRef,
@@ -93,10 +100,14 @@ export default defineComponent({
       mergedDisabled: mergedDisabledRef,
       mergedValue: NMenu.mergedValueRef,
       childActive: useMemo(() => {
-        return NMenu.activePathRef.value.includes(props.internalKey)
+        return (
+          props.virtualChildActive
+          ?? NMenu.activePathRef.value.includes(props.internalKey)
+        )
       }),
       collapsed: computed(() => {
-        if (menuProps.mode === 'horizontal') return false
+        if (menuProps.mode === 'horizontal')
+          return false
         if (mergedCollapsedRef.value) {
           return true
         }
@@ -104,16 +115,19 @@ export default defineComponent({
       }),
       dropdownEnabled: computed(() => {
         return (
-          !mergedDisabledRef.value &&
-          (menuProps.mode === 'horizontal' || mergedCollapsedRef.value)
+          !mergedDisabledRef.value
+          && (menuProps.mode === 'horizontal' || mergedCollapsedRef.value)
         )
       }),
       handlePopoverShowChange,
       handleClick
     }
   },
-  render () {
-    const { mergedClsPrefix } = this
+  render() {
+    const {
+      mergedClsPrefix,
+      menuProps: { renderIcon, renderLabel }
+    } = this
     const createSubmenuItem = (): VNode => {
       const {
         isHorizontal,
@@ -126,27 +140,40 @@ export default defineComponent({
         childActive,
         icon,
         handleClick,
+        menuProps: { nodeProps },
         dropdownShow,
         iconMarginRight,
-        tmNode
+        tmNode,
+        mergedClsPrefix,
+        isEllipsisPlaceholder,
+        extra
       } = this
+      const attrs = nodeProps?.(tmNode.rawNode)
       return (
-        <NMenuOptionContent
-          tmNode={tmNode}
-          paddingLeft={paddingLeft}
-          collapsed={collapsed}
-          disabled={mergedDisabled}
-          iconMarginRight={iconMarginRight}
-          maxIconSize={maxIconSize}
-          activeIconSize={activeIconSize}
-          title={title}
-          showArrow={!isHorizontal}
-          childActive={childActive}
-          clsPrefix={mergedClsPrefix}
-          icon={icon}
-          hover={dropdownShow}
-          onClick={handleClick}
-        />
+        <div
+          {...attrs}
+          class={[`${mergedClsPrefix}-menu-item`, attrs?.class]}
+          role="menuitem"
+        >
+          <NMenuOptionContent
+            tmNode={tmNode}
+            paddingLeft={paddingLeft}
+            collapsed={collapsed}
+            disabled={mergedDisabled}
+            iconMarginRight={iconMarginRight}
+            maxIconSize={maxIconSize}
+            activeIconSize={activeIconSize}
+            title={title}
+            extra={extra}
+            showArrow={!isHorizontal}
+            childActive={childActive}
+            clsPrefix={mergedClsPrefix}
+            icon={icon}
+            hover={dropdownShow}
+            onClick={handleClick}
+            isEllipsisPlaceholder={isEllipsisPlaceholder}
+          />
+        </div>
       )
     }
     const createSubmenuChildren = (): VNode => {
@@ -157,7 +184,7 @@ export default defineComponent({
               const { tmNodes, collapsed } = this
               return !collapsed ? (
                 <div class={`${mergedClsPrefix}-submenu-children`} role="menu">
-                  {tmNodes.map((item) => itemRenderer(item))}
+                  {tmNodes.map(item => itemRenderer(item, this.menuProps))}
                 </div>
               ) : null
             }
@@ -167,26 +194,35 @@ export default defineComponent({
     }
     return this.root ? (
       <NDropdown
+        size="large"
+        trigger="hover"
+        {...this.menuProps?.dropdownProps}
+        themeOverrides={this.mergedTheme.peerOverrides.Dropdown}
+        theme={this.mergedTheme.peers.Dropdown}
         builtinThemeOverrides={{
           fontSizeLarge: '14px',
           optionIconSizeLarge: '18px'
         }}
         value={this.mergedValue}
-        size="large"
-        trigger="hover"
         disabled={!this.dropdownEnabled}
         placement={this.dropdownPlacement}
+        keyField={this.menuProps.keyField}
+        labelField={this.menuProps.labelField}
+        childrenField={this.menuProps.childrenField}
         onUpdateShow={this.handlePopoverShowChange}
         options={this.rawNodes}
         onSelect={this.doSelect}
         inverted={this.inverted}
+        renderIcon={renderIcon}
+        renderLabel={renderLabel}
       >
         {{
           default: () => (
             <div
               class={`${mergedClsPrefix}-submenu`}
-              role="menuitem"
+              role="menu"
               aria-expanded={!this.collapsed}
+              id={this.domId}
             >
               {createSubmenuItem()}
               {this.isHorizontal ? null : createSubmenuChildren()}
@@ -197,8 +233,9 @@ export default defineComponent({
     ) : (
       <div
         class={`${mergedClsPrefix}-submenu`}
-        role="menuitem"
+        role="menu"
         aria-expanded={!this.collapsed}
+        id={this.domId}
       >
         {createSubmenuItem()}
         {createSubmenuChildren()}

@@ -1,34 +1,35 @@
-import {
-  h,
-  Transition,
-  ref,
-  inject,
-  toRef,
-  defineComponent,
-  PropType,
-  computed,
-  watch,
-  nextTick,
-  withDirectives
-} from 'vue'
-import { clickoutside } from 'vdirs'
-import { createTreeMate } from 'treemate'
 import type {
   SelectBaseOption,
   SelectGroupOption,
   SelectIgnoredOption
 } from '../../select/src/interface'
-import { InternalSelectMenuRef, NInternalSelectMenu } from '../../_internal'
-import { createSelectOptions } from './utils'
-import {
-  TmNode,
-  Value,
+import type {
+  CascaderOption,
   Filter,
-  BaseOption,
   SelectMenuInstance,
-  cascaderInjectionKey
+  TmNode,
+  Value
 } from './interface'
-import { tmOptions } from '../../select/src/utils'
+import { createTreeMate, type TreeNode } from 'treemate'
+import { clickoutside } from 'vdirs'
+import {
+  computed,
+  defineComponent,
+  h,
+  inject,
+  type PropType,
+  ref,
+  Transition,
+  withDirectives
+} from 'vue'
+import {
+  type InternalSelectMenuRef,
+  NInternalSelectMenu
+} from '../../_internal'
+import { resolveSlot } from '../../_utils'
+import { createTmOptions } from '../../select/src/utils'
+import { cascaderInjectionKey } from './interface'
+import { createSelectOptions } from './utils'
 
 export default defineComponent({
   name: 'NCascaderSelectMenu',
@@ -47,101 +48,122 @@ export default defineComponent({
       type: Array as PropType<TmNode[]>,
       default: () => []
     },
-    filter: {
-      type: Function as PropType<Filter>,
-      default: (pattern: string, _: BaseOption, path: BaseOption[]) =>
-        path.some((option) => option.label && ~option.label.indexOf(pattern))
+    filter: Function as PropType<Filter>,
+    labelField: {
+      type: String,
+      required: true
+    },
+    separator: {
+      type: String,
+      required: true
     }
   },
-  setup (props) {
+  setup(props) {
     const {
       isMountedRef,
-      leafOnlyRef,
       mergedValueRef,
       mergedClsPrefixRef,
       mergedThemeRef,
+      mergedCheckStrategyRef,
+      slots: cascaderSlots,
       syncSelectMenuPosition,
       closeMenu,
       handleSelectMenuClickOutside,
       doUncheck: cascaderDoUncheck,
-      doCheck: cascaderDoCheck
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      doCheck: cascaderDoCheck,
+      clearPattern
     } = inject(cascaderInjectionKey)!
     const menuInstRef = ref<InternalSelectMenuRef | null>(null)
     const selectOptionsRef = computed(() => {
-      return createSelectOptions(props.tmNodes, leafOnlyRef.value)
+      return createSelectOptions(
+        props.tmNodes,
+        mergedCheckStrategyRef.value === 'child',
+        props.labelField,
+        props.separator
+      )
+    })
+    const mergedFilterRef = computed(() => {
+      const { filter } = props
+      if (filter)
+        return filter
+      const { labelField } = props
+      return (pattern: string, _: CascaderOption, path: CascaderOption[]) =>
+        path.some(
+          option =>
+            option[labelField]
+            && ~(option[labelField] as any)
+              .toLowerCase()
+              .indexOf(pattern.toLowerCase())
+        )
     })
     const filteredSelectOptionsRef = computed(() => {
-      const { filter, pattern } = props
-      return selectOptionsRef.value
-        .filter((option) => {
-          return filter(
-            pattern,
-            { label: option.label, value: option.value },
-            option.path
-          )
-        })
-        .map((option) => ({
-          value: option.value,
-          label: option.label
-        }))
+      const { pattern } = props
+      const { value: mergedFilter } = mergedFilterRef
+      return (
+        pattern
+          ? selectOptionsRef.value.filter((option) => {
+              return mergedFilter(pattern, option.rawNode, option.path)
+            })
+          : selectOptionsRef.value
+      ).map(option => ({
+        value: option.value,
+        label: option.label
+      }))
     })
     const selectTreeMateRef = computed(() => {
       return createTreeMate<
-      SelectBaseOption,
-      SelectGroupOption,
-      SelectIgnoredOption
-      >(filteredSelectOptionsRef.value, tmOptions)
+        SelectBaseOption,
+        SelectGroupOption,
+        SelectIgnoredOption
+      >(filteredSelectOptionsRef.value, createTmOptions('value', 'children'))
     })
-    watch(toRef(props, 'value'), () => {
-      void nextTick(() => {
-        syncSelectMenuPosition()
-      })
-    })
-    watch(filteredSelectOptionsRef, () => {
-      void nextTick(() => {
-        syncSelectMenuPosition()
-      })
-    })
-    function handleToggleOption (option: BaseOption): void {
-      doCheck(option)
+    function handleResize(): void {
+      syncSelectMenuPosition()
     }
-    function doCheck (option: BaseOption): void {
+    function handleToggle(tmNode: TreeNode<SelectBaseOption>): void {
+      doCheck(tmNode)
+    }
+    // We don't care what type the tmNode is, we only care about its key
+    function doCheck(tmNode: TreeNode<SelectBaseOption>): void {
       if (props.multiple) {
         const { value: mergedValue } = mergedValueRef
         if (Array.isArray(mergedValue)) {
-          if (!mergedValue.includes(option.value)) {
-            cascaderDoCheck(option.value)
-          } else {
-            cascaderDoUncheck(option.value)
+          if (!mergedValue.includes(tmNode.key)) {
+            cascaderDoCheck(tmNode.key)
           }
-        } else if (mergedValue === null) {
-          cascaderDoCheck(option.value)
+          else {
+            cascaderDoUncheck(tmNode.key)
+          }
         }
-      } else {
-        cascaderDoCheck(option.value)
+        else if (mergedValue === null) {
+          cascaderDoCheck(tmNode.key)
+        }
+        clearPattern()
+      }
+      else {
+        cascaderDoCheck(tmNode.key)
         // currently the select menu is set to focusable
         // however just leave it here
         closeMenu(true)
       }
     }
-    function prev (): void {
+    function prev(): void {
       menuInstRef.value?.prev()
     }
-    function next (): void {
+    function next(): void {
       menuInstRef.value?.next()
     }
-    function enter (): boolean {
+    function enter(): boolean {
       if (menuInstRef) {
-        const pendingOptionData = menuInstRef.value?.getPendingOption()
-        if (pendingOptionData) {
-          doCheck(pendingOptionData)
+        const pendingOptionTmNode = menuInstRef.value?.getPendingTmNode()
+        if (pendingOptionTmNode) {
+          doCheck(pendingOptionTmNode)
         }
         return true
       }
       return false
     }
-    function handleClickOutside (e: MouseEvent): void {
+    function handleClickOutside(e: MouseEvent): void {
       handleSelectMenuClickOutside(e)
     }
     const exposedRef: SelectMenuInstance = {
@@ -155,35 +177,50 @@ export default defineComponent({
       mergedClsPrefix: mergedClsPrefixRef,
       menuInstRef,
       selectTreeMate: selectTreeMateRef,
-      handleToggleOption,
+      handleResize,
+      handleToggle,
       handleClickOutside,
+      cascaderSlots,
       ...exposedRef
     }
   },
-  render () {
-    const { mergedClsPrefix, isMounted, mergedTheme } = this
+  render() {
+    const { mergedClsPrefix, isMounted, mergedTheme, cascaderSlots } = this
     return (
       <Transition name="fade-in-scale-up-transition" appear={isMounted}>
         {{
           default: () =>
             this.show
               ? withDirectives(
-                <NInternalSelectMenu
-                  ref="menuInstRef"
-                  clsPrefix={mergedClsPrefix}
-                  class={`${mergedClsPrefix}-cascader-menu`}
-                  autoPending
-                  themeOverrides={
-                    mergedTheme.peerOverrides.InternalSelectMenu
-                  }
-                  theme={mergedTheme.peers.InternalSelectMenu}
-                  treeMate={this.selectTreeMate}
-                  multiple={this.multiple}
-                  value={this.value}
-                  onMenuToggleOption={this.handleToggleOption}
-                />,
-                [[clickoutside, this.handleClickOutside]]
-              )
+                  <NInternalSelectMenu
+                    ref="menuInstRef"
+                    onResize={this.handleResize}
+                    clsPrefix={mergedClsPrefix}
+                    class={`${mergedClsPrefix}-cascader-menu`}
+                    autoPending
+                    themeOverrides={
+                      mergedTheme.peerOverrides.InternalSelectMenu
+                    }
+                    theme={mergedTheme.peers.InternalSelectMenu}
+                    treeMate={this.selectTreeMate}
+                    multiple={this.multiple}
+                    value={this.value}
+                    onToggle={this.handleToggle}
+                  >
+                    {{
+                      empty: () =>
+                        resolveSlot(cascaderSlots['not-found'], () => [])
+                    }}
+                  </NInternalSelectMenu>,
+                  [
+                    [
+                      clickoutside,
+                      this.handleClickOutside,
+                      undefined as unknown as string,
+                      { capture: true }
+                    ]
+                  ]
+                )
               : null
         }}
       </Transition>

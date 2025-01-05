@@ -1,10 +1,10 @@
-import { c, cB, cM, cE } from '../../../_utils/cssr'
+import { repeat } from 'seemly'
+import { c, cB, cE, cM } from '../../../_utils/cssr'
 
-const positionStyles = Array
-  .apply(null, { length: 24 } as any)
+const positionStyles = repeat(24, null)
   .map((_, index) => {
     const prefixIndex = index + 1
-    const percent = (1 / 24 * prefixIndex * 100).toFixed(2) + '%'
+    const percent = `calc(100% / 24 * ${prefixIndex})`
     return [
       cM(`${prefixIndex}-span`, {
         width: percent

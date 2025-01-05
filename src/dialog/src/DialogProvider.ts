@@ -1,29 +1,51 @@
-import {
-  defineComponent,
-  Fragment,
-  ref,
-  h,
-  ExtractPropTypes,
-  provide,
-  PropType,
-  reactive,
-  InjectionKey,
-  Ref
-} from 'vue'
+import type { ExtractPublicPropTypes, Mutable } from '../../_utils'
 import { createId } from 'seemly'
-import { omit } from '../../_utils'
-import type { ExtractPublicPropTypes } from '../../_utils'
-import DialogEnvironment, { exposedDialogEnvProps } from './DialogEnvironment'
 import { useClicked, useClickPosition } from 'vooks'
+import {
+  type CSSProperties,
+  defineComponent,
+  type ExtractPropTypes,
+  Fragment,
+  h,
+  type PropType,
+  provide,
+  reactive,
+  type Ref,
+  ref
+} from 'vue'
+import { omit } from '../../_utils'
+import {
+  dialogApiInjectionKey,
+  dialogProviderInjectionKey,
+  dialogReactiveListInjectionKey
+} from './context'
+import {
+  type exposedDialogEnvProps,
+  NDialogEnvironment
+} from './DialogEnvironment'
 
-export type DialogOptions = Partial<
-ExtractPropTypes<typeof exposedDialogEnvProps>
+export type DialogOptions = Mutable<
+  Omit<
+    Partial<ExtractPropTypes<typeof exposedDialogEnvProps>>,
+    'internalStyle'
+  > & {
+    class?: any
+    style?: string | CSSProperties
+  }
 >
 
 export type DialogReactive = {
   readonly key: string
   readonly destroy: () => void
 } & DialogOptions
+
+// FIXME
+// If style is used as CSSProperties, typescript 4.4.2 will throw tons of errors
+// Fxxx
+type TypeSafeDialogReactive = DialogReactive & {
+  class?: any
+  style?: any
+}
 
 export interface DialogApiInjection {
   destroyAll: () => void
@@ -34,16 +56,12 @@ export interface DialogApiInjection {
   info: (options: DialogOptions) => DialogReactive
 }
 
-export const dialogApiInjectionKey: InjectionKey<DialogApiInjection> =
-  Symbol('dialogApi')
-
 export interface DialogProviderInjection {
   clickedRef: Ref<boolean>
-  clickPositionRef: Ref<{ x: number, y: number } | null>
+  clickedPositionRef: Ref<{ x: number, y: number } | null>
 }
 
-export const dialogProviderInjectionKey: InjectionKey<DialogProviderInjection> =
-  Symbol('dialogProvider')
+export type DialogReactiveListInjection = Ref<DialogReactive[]>
 
 interface DialogInst {
   hide: () => void
@@ -51,7 +69,7 @@ interface DialogInst {
 
 export type DialogProviderInst = DialogApiInjection
 
-const dialogProviderProps = {
+export const dialogProviderProps = {
   injectionKey: String,
   to: [String, Object] as PropType<string | HTMLElement>
 }
@@ -60,19 +78,19 @@ export type DialogProviderProps = ExtractPublicPropTypes<
   typeof dialogProviderProps
 >
 
-export default defineComponent({
+export const NDialogProvider = defineComponent({
   name: 'DialogProvider',
   props: dialogProviderProps,
-  setup () {
-    const dialogListRef = ref<DialogReactive[]>([])
-    const dialogInstRefs: Record<string, DialogInst> = {}
-    function create (options: DialogOptions = {}): DialogReactive {
+  setup() {
+    const dialogListRef = ref<TypeSafeDialogReactive[]>([])
+    const dialogInstRefs: Record<string, DialogInst | undefined> = {}
+    function create(options: DialogOptions = {}): DialogReactive {
       const key = createId()
       const dialogReactive = reactive({
         ...options,
         key,
         destroy: () => {
-          dialogInstRefs[`n-dialog-${key}`].hide()
+          dialogInstRefs[`n-dialog-${key}`]?.hide()
         }
       })
       dialogListRef.value.push(dialogReactive)
@@ -80,24 +98,24 @@ export default defineComponent({
     }
     const typedApi = (
       ['info', 'success', 'warning', 'error'] as Array<
-      'info' | 'success' | 'warning' | 'error'
+        'info' | 'success' | 'warning' | 'error'
       >
-    ).map((type) => (options: DialogOptions): DialogReactive => {
+    ).map(type => (options: DialogOptions): DialogReactive => {
       return create({ ...options, type })
     })
 
-    function handleAfterLeave (key: String): void {
+    function handleAfterLeave(key: string): void {
       const { value: dialogList } = dialogListRef
       dialogList.splice(
-        dialogList.findIndex((dialog) => dialog.key === key),
+        dialogList.findIndex(dialog => dialog.key === key),
         1
       )
     }
 
-    function destroyAll (): void {
-      Object.values(dialogInstRefs).forEach((dialogInstRef) =>
-        dialogInstRef.hide()
-      )
+    function destroyAll(): void {
+      Object.values(dialogInstRefs).forEach((dialogInstRef) => {
+        dialogInstRef?.hide()
+      })
     }
 
     const api = {
@@ -111,8 +129,9 @@ export default defineComponent({
     provide(dialogApiInjectionKey, api)
     provide(dialogProviderInjectionKey, {
       clickedRef: useClicked(64),
-      clickPositionRef: useClickPosition()
+      clickedPositionRef: useClickPosition()
     })
+    provide(dialogReactiveListInjectionKey, dialogListRef)
     return {
       ...api,
       dialogList: dialogListRef,
@@ -120,18 +139,19 @@ export default defineComponent({
       handleAfterLeave
     }
   },
-  render () {
+  render() {
     return h(Fragment, null, [
-      this.dialogList.map((dialog) =>
+      this.dialogList.map(dialog =>
         h(
-          DialogEnvironment,
-          omit(dialog, ['destroy'], {
+          NDialogEnvironment,
+          omit(dialog, ['destroy', 'style'], {
+            internalStyle: dialog.style,
             to: this.to,
             ref: ((inst: DialogInst | null) => {
               if (inst === null) {
-                // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
                 delete this.dialogInstRefs[`n-dialog-${dialog.key}`]
-              } else {
+              }
+              else {
                 this.dialogInstRefs[`n-dialog-${dialog.key}`] = inst
               }
             }) as any,

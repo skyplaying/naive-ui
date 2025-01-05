@@ -2,103 +2,134 @@
 
 <!--single-column-->
 
-Collect & validate data.
+The element to collect and validate data.
+
+<n-alert type="warning" title="Caveat" :bordered="false">
+  If you want to apply required rule for a form item with number typed value, you need to set <n-text code>`type: 'number'`</n-text> in the rule object.
+</n-alert>
 
 ## Demos
 
 ```demo
-inline
-custom-rule
-custom-validation
-top
-left
-item-only
-async
+inline.vue
+custom-rule.vue
+abnormal-warning.vue
+custom-validation.vue
+i18n.vue
+top.vue
+left.vue
+item-only.vue
+async.vue
+disabled.vue
+show-label.vue
+partially-apply-rules.vue
+custom-messages.vue
+dynamic.vue
+feedback-style.vue
 ```
 
-## Props
+## API
 
 ### Form Props
 
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| inline | `boolean` | `false` |  |
-| label-width | `number \| string` | `undefined` | The width of label. Can be useful when `label-placement` is `'left'`. |
-| label-align | `'left' \| 'right'` | `'left'` | Text align in label. |
-| label-placement | `'left' \| 'top'` | `'top'` |  |
-| model | `Object` | `{}` | The object to get collected value from form items. |
-| rules | `type FormRules = { [itemValidatePath: string]: FormItemRule \| Array<FormItemRule> \| FormRules }` | `{}` | The rules to validate form items. |
-| show-feedback | `boolean` | `true` |  |
-| show-require-mark | `'left' \| 'right' \| 'boolean'` | `'right'` | Whether to show require mark when form item is required. |
-| size | `'small' \| 'medium' \| 'large'` | `'medium'` |  |
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| disabled | `boolean` | `false` | Whether to disable the form. |  |
+| inline | `boolean` | `false` | Whether to display as an inline form. |  |
+| label-width | `number \| string \| 'auto'` | `undefined` | The width of label. Particularly useful when `label-placement` is set to `'left'`,`'auto'` means label width will be auto adjusted. |  |
+| label-align | `'left' \| 'right'` | `-` | Label text alignment. |  |
+| label-placement | `'left' \| 'top'` | `'top'` | Label placement. |  |
+| model | `Object` | `{}` | The object to get/set form item values. |  |
+| rules | `type FormRules = { [itemValidatePath: string]: FormItemRule \| Array<FormItemRule> \| FormRules }` | `{}` | The rules to validate form items. |  |
+| show-feedback | `boolean` | `true` | Whether to show the feedback area. |  |
+| show-label | `boolean` | `true` | Whether to show the label. |  |
+| show-require-mark | `boolean` | `-` | Whether to show a required symbol when a form item is required. |  |
+| require-mark-placement | `'left' \| 'right' \| 'right-hanging'` | `'right'` | Require mark placement | `'right-hanging'` 2.24.0 |
+| size | `'small' \| 'medium' \| 'large'` | `'medium'` | Size. |  |
+| validate-messages | `FormValidateMessages` | `undefined` | Validation messages of `async-validator`. | 2.27.0 |
 
 #### FormItemRule Type
 
-| Property | Type | Description |
-| --- | --- | --- |
-| required | `boolean` |  |
-| validator | `(rule: FormItemRule, value: any) => boolean \| Error` |  |
-| asyncValidator | `(rule: FormItemRule, value: any, callback: boolean => void) => void` |  |
-| trigger | `string \| Array<string>` |  |
-| message | `string` |  |
+<n-alert title="Caveat" type="warning" style="margin-bottom: 16px;" :bordered="false">
+  The follow table doesn't demostrate all props of rules. If you want to know all the usages, please see <n-a href="https://github.com/yiminghe/async-validator" target="_blank">async-validator</n-a>.
+</n-alert>
 
-### Form Item Props
+| Property | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| asyncValidator | `(rule: FormItemRule, value: any, callback: (error?: Error) => void) => void` | `undefined` | Asynchronous validation in the form of a callback. |  |
+| key | `string` | `undefined` | Unique key of this rule, which can be used to apply partial rules. See [Apply partial rules](form#partially-apply-rules.vue) example. |  |
+| level | `'error'` \| `'warning'` | `undefined` | Validation level. If there are already errors, `'warning'` level validation would be skipped. |  |
+| message | `string` | `undefined` | Text to show when validation fails. |  |
+| renderMessage | `() => VNodeChild` | `undefined` | Render function or message. | 2.29.1 |
+| required | `boolean` | `undefined` | Is it required. |  |
+| trigger | `string \| Array<string>` | `undefined` | Trigger type. |  |
+| validator | `(rule: FormItemRule, value: any) => boolean \| Error` | `undefined` | Validation rule. |  |
 
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| feedback | `string` | `undefined` | The feedback message of the form item. If not set to `undefined`, it will take place of the result of rule-based validation. |
-| first | `boolean` | `false` | Whether only to show the first validation error message. |
-| ingore-path-change | `boolean` | `false` | Usually, the change of `path` will cause the data source's variation. So naive-ui will clear the validation result. If it is not expected, you can set it to `true` |
-| label | `string` | `undefined` |  |
-| label-align | `'left' \| 'right'` | `undefined` | Text align in label. If not set, use `label-align` from wrapper form. |
-| label-placement | `'left' \| 'top'` | `undefined` | If not set, use `label-placement` from wrapper form. |
-| label-style | `Object` | `{}` |  |
-| label-width | `number \| string` | `undefined` | If not set, use `label-width` from the wrapper form. |
-| path | `string` | `undefined` | The path to collect item value to wrapper form's model object. |
-| required | `boolean` | `false` | Whether to show required mark. Note: a required rule has higher priority than this prop & this prop **won't** have any effect on validation. The validation still depends on the rules. |
-| rule | `FormItemRule \| Array<FormItemRule>` | `undefined` | The rule to validate the form item. It will be merged with the rules acquired by `rule-path` from wrapper form's rules. It's recommend to set all rules on wrapper form. |
-| rule-path | `string` | `undefined` | The path to get rule from wrapper form's rule object. If not set, use path of the form item instead. |
-| show-feedback | `boolean` | `true` |  |
-| show-require-mark | `'left' \| 'right' \| 'boolean'` | `'right'` | Whether to show require mark. If not set, use `show-require-mark` from wrapper form. |
-| size | `'small' \| 'medium' \| 'large'` | `'medium'` |  |
-| validation-status | `'error' \| 'success' \| 'warning'` | `undefined` | The validation status of the form item. If not set to `undefined`, it will take place of the result of rule-based validation. |
+#### FormValidateMessages Type
+
+<n-alert title="Caveat" type="warning" style="margin-bottom: 16px;">
+  Please see the default messages defined in <n-a href="https://github.com/yiminghe/async-validator/blob/master/src/messages.ts" target="_blank">async-validator</n-a> in order to see which messages you can override.
+</n-alert>
+
+### FormItem Props
+
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| feedback | `string` | `undefined` | The feedback message of the form item. If set, it will replace any result of rule-based validation. |  |
+| feedback-class | `string` | `undefined` | Feedback check vertical display positioning | 2.38.2 |
+| feedback-style | `string \| object` | `undefined` | Feedback check horizontal display positioning | 2.38.2 |
+| first | `boolean` | `false` | Whether to only show the first validation error message. |  |
+| ignore-path-change | `boolean` | `false` | Usually, changing `path` will cause a re-render and naive-ui will clear the validation result. Setting `ignore-path-change` to `true` will disable that behavior. |  |
+| label | `string` | `undefined` | Label. |  |
+| label-align | `'left' \| 'right'` | `undefined` | Text alignment inside the label. If not set, it will inherit the parent form's `label-align`. |  |
+| label-placement | `'left' \| 'top'` | `undefined` | If not set, it will inherit the parent form's `label-placement`. |  |
+| label-props | `LabelHTMLAttributes` | `undefined` | HTML attributes of the label element inside form item. | 2.24.0 |
+| label-style | `CSSProperties \| string` | `undefined` | Label style. |  |
+| label-width | `number \| string \| 'auto'` | `undefined` | If not set, it will inherit the parent form's `label-width`,`'auto'` means label width will be auto adjusted. |  |
+| path | `string` | `undefined` | The path to use in the parent form's model object. |  |
+| required | `boolean` | `false` | Whether to show the "required" symbol. Note: a required rule has higher priority than this prop & this prop **won't** have any effect on validation. Validation still depends on rules. |  |
+| rule | `FormItemRule \| Array<FormItemRule>` | `undefined` | The rule to validate this form item. It will be merged with the rules acquired by `rule-path` from the parent form's rules. It's recommended to set all rules on the parent form. |  |
+| rule-path | `string` | `undefined` | The path to get rules from the parent form's rule object. If not set, it will use the path of the parent form item instead. |  |
+| show-feedback | `boolean` | `true` | Whether to show the feedback area. |  |
+| show-label | `boolean` | `true` | Whether to show a label. If not set, it will inherit `show-label` from the parent form. |  |
+| show-require-mark | `boolean` | `-` | Whether to show required symbol. If not set, it will use `show-require-mark` from the parent form. |
+| require-mark-placement | `'left' \| 'right' \| 'right-hanging'` | `'right'` | Require mark placement. If not set, it will use `require-mark-placement` from the parent form. | `'right-hanging'` 2.24.0 |
+| size | `'small' \| 'medium' \| 'large'` | `'medium'` | Size. |  |
+| validation-status | `'error' \| 'success' \| 'warning'` | `undefined` | The validation status of the form item. If set, it will replace the result of the rule-based validation. |  |
 
 ### FormItemGi Props
 
 Accept all props from FormItem & [GridItem](grid#GridItem-Props)
 
-## Methods
-
 ### Form Methods
 
-<n-alert type="warning" title="Caveat on Validate Method" style="margin-bottom: 16px;">
+<n-alert type="warning" title="Caveat on Validate Method" style="margin-bottom: 16px;" :bordered="false">
   By default, validation will use all rules regardless of the triggers of the rules.
 </n-alert>
 
-| Name | Type | Description |
-| --- | --- | --- |
-| validate | `(validateCallback?: (errors?: Array<ValidationError>) => void, shouldRuleBeApplied?: FormItemRule => boolean) => Promise<void>` | Validate the form. The rejection value type of returned promise is `Array<ValidationError>`. |
-| restoreValidation | `() => void` |  |
+| Name | Type | Description | Version |
+| --- | --- | --- | --- |
+| validate | `(validateCallback?: (errors: Array<FormValidationError> \| undefined, extra: { warnings: Array<FormValidationError> \| undefined }) => void, shouldRuleBeApplied?: FormItemRule => boolean) => Promise<{ warnings: Array<FormValidationError> \| undefined }>` | Validate the form. The rejection value type of returned promise is `Array<FormValidationError>`. | `warnings` `2.37.1` |
+| restoreValidation | `() => void` | Restore validate. |  |
 
 ### FormItem, FormItemGi Methods
 
-| Name | Type | Description |
-| --- | --- | --- |
-| validate | `(options: { trigger?: string, callback?: (errors?: Array<ValidationError>) => void, shouldRuleBeApplied?: FormItemRule => boolean, options?: AsyncValidatorOptions }) => Promise<void>` | Validate the form item. The rejection value type of returned promise is `Array<ValidationError>`. If trigger is not set, all rules of the item will be applied. `shouldRuleBeApplied` can filter rules after they are filtered by the trigger. |
-| restoreValidation | `() => void` |  |
+| Name | Type | Description | Version |
+| --- | --- | --- | --- |
+| validate | `(options: { trigger?: string, callback?: (errors: FormValidationError \| undefined, extra: { warnings: FormValidationError \| undefined }) => void, shouldRuleBeApplied?: FormItemRule => boolean, options?: AsyncValidatorOptions }) => Promise<{ warnings: FormValidationError \| undefined }>` | Validate the form item. The rejection value type of returned promise is `FormValidationError`. If trigger is not set, all rules of the item will be applied. `shouldRuleBeApplied` can filter rules after they are filtered by the trigger. | `warnings` `2.37.1` |
+| restoreValidation | `() => void` | Restore validate. |  |
 
-About AsyncValidatorOptions, see <n-a href="https://github.com/yiminghe/async-validator">async-validator</n-a>.
-
-## Slots
+To find out more about AsyncValidatorOptions, see <n-a href="https://github.com/yiminghe/async-validator" target="_blank">async-validator</n-a>.
 
 ### Form, FormItem, FormItemGi Slots
 
 | Name    | Parameters | Description |
 | ------- | ---------- | ----------- |
-| default | `()`       |             |
+| default | `()`       | Content.    |
 
 ### FormItem, FormItemGi Slots
 
-| Name  | Parameters | Description |
-| ----- | ---------- | ----------- |
-| label | `()`       |             |
+| Name     | Parameters | Description    | Version |
+| -------- | ---------- | -------------- | ------- |
+| feedback | `()`       | Feedback.      | 2.24.0  |
+| label    | `()`       | Label content. |         |

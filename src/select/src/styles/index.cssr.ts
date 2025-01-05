@@ -1,18 +1,21 @@
-import { cB, c } from '../../../_utils/cssr'
-import fadeInScaleUpTransition from '../../../_styles/transitions/fade-in-scale-up.cssr'
+import { fadeInScaleUpTransition } from '../../../_styles/transitions/fade-in-scale-up.cssr'
+import { c, cB } from '../../../_utils/cssr'
 
-// --menu-box-shadow
+// --n-menu-box-shadow
 export default c([
   cB('select', `
     z-index: auto;
     outline: none;
     width: 100%;
     position: relative;
+    font-weight: var(--n-font-weight);
   `),
   cB('select-menu', `
     margin: 4px 0;
-    box-shadow: var(--menu-box-shadow);
+    box-shadow: var(--n-menu-box-shadow);
   `, [
-    fadeInScaleUpTransition()
+    fadeInScaleUpTransition({
+      originalTransition: 'background-color .3s var(--n-bezier), box-shadow .3s var(--n-bezier)'
+    })
   ])
 ])

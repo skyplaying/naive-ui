@@ -1,11 +1,11 @@
-import sizeVariables from './_common'
-import { commonDark } from '../../_styles/common'
 import type { TimelineTheme } from './light'
+import { commonDark } from '../../_styles/common'
+import sizeVariables from './_common'
 
 const timelineDark: TimelineTheme = {
   name: 'Timeline',
   common: commonDark,
-  self (vars) {
+  self(vars) {
     const {
       textColor3,
       infoColorSuppl,
@@ -27,6 +27,11 @@ const timelineDark: TimelineTheme = {
       circleBorderError: `2px solid ${errorColorSuppl}`,
       circleBorderSuccess: `2px solid ${successColorSuppl}`,
       circleBorderWarning: `2px solid ${warningColorSuppl}`,
+      iconColor: textColor3,
+      iconColorInfo: infoColorSuppl,
+      iconColorError: errorColorSuppl,
+      iconColorSuccess: successColorSuppl,
+      iconColorWarning: warningColorSuppl,
       titleTextColor: textColor1,
       contentTextColor: textColor2,
       metaTextColor: textColor3,

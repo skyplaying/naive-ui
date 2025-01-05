@@ -1,9 +1,9 @@
-import { computed, defineComponent, h, inject, PropType } from 'vue'
+import type { TmNode } from './interface'
+import { computed, defineComponent, h, inject, type PropType } from 'vue'
+import { NBaseIcon } from '../../_internal'
 import { ChevronDownFilledIcon } from '../../_internal/icons'
 import { render } from '../../_utils'
-import { NBaseIcon } from '../../_internal'
-import { menuInjectionKey } from './Menu'
-import { TmNode } from './interface'
+import { menuInjectionKey } from './context'
 
 export default defineComponent({
   name: 'MenuOptionContent',
@@ -17,6 +17,7 @@ export default defineComponent({
     childActive: Boolean,
     hover: Boolean,
     paddingLeft: Number,
+    selected: Boolean,
     maxIconSize: {
       type: Number,
       required: true
@@ -37,10 +38,10 @@ export default defineComponent({
     tmNode: {
       type: Object as PropType<TmNode>,
       required: true
-    }
+    },
+    isEllipsisPlaceholder: Boolean
   },
-  setup (props) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  setup(props) {
     const { props: menuProps } = inject(menuInjectionKey)!
     return {
       menuProps,
@@ -59,19 +60,23 @@ export default defineComponent({
       })
     }
   },
-  render () {
+  render() {
     const {
       clsPrefix,
       tmNode,
-      menuProps: { renderLabel }
+      menuProps: { renderIcon, renderLabel, renderExtra, expandIcon }
     } = this
+    const icon = renderIcon ? renderIcon(tmNode.rawNode) : render(this.icon)
     return (
       <div
-        onClick={this.onClick}
+        onClick={(e) => {
+          this.onClick?.(e)
+        }}
         role="none"
         class={[
           `${clsPrefix}-menu-item-content`,
           {
+            [`${clsPrefix}-menu-item-content--selected`]: this.selected,
             [`${clsPrefix}-menu-item-content--collapsed`]: this.collapsed,
             [`${clsPrefix}-menu-item-content--child-active`]: this.childActive,
             [`${clsPrefix}-menu-item-content--disabled`]: this.disabled,
@@ -80,21 +85,25 @@ export default defineComponent({
         ]}
         style={this.style}
       >
-        {this.icon ? (
+        {icon && (
           <div
             class={`${clsPrefix}-menu-item-content__icon`}
             style={this.iconStyle}
             role="none"
           >
-            {render(this.icon)}
+            {[icon]}
           </div>
-        ) : null}
+        )}
         <div class={`${clsPrefix}-menu-item-content-header`} role="none">
-          {renderLabel ? renderLabel(tmNode.rawNode) : render(this.title)}
-          {this.extra ? (
+          {this.isEllipsisPlaceholder
+            ? this.title
+            : renderLabel
+              ? renderLabel(tmNode.rawNode)
+              : render(this.title)}
+          {this.extra || renderExtra ? (
             <span class={`${clsPrefix}-menu-item-content-header__extra`}>
               {' '}
-              {render(this.extra)}
+              {renderExtra ? renderExtra(tmNode.rawNode) : render(this.extra)}
             </span>
           ) : null}
         </div>
@@ -105,7 +114,12 @@ export default defineComponent({
             clsPrefix={clsPrefix}
           >
             {{
-              default: () => <ChevronDownFilledIcon />
+              default: () =>
+                expandIcon ? (
+                  expandIcon(tmNode.rawNode)
+                ) : (
+                  <ChevronDownFilledIcon />
+                )
             }}
           </NBaseIcon>
         ) : null}

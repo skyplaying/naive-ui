@@ -1,17 +1,26 @@
-import { changeColor } from 'seemly'
-import commonVars from './_common'
-import { commonDark } from '../../_styles/common'
 import type { SwitchTheme } from './light'
+import { changeColor } from 'seemly'
+import { commonDark } from '../../_styles/common'
+import commonVars from './_common'
 
 const switchDark: SwitchTheme = {
   name: 'Switch',
   common: commonDark,
-  self (vars) {
-    const { primaryColorSuppl, opacityDisabled, borderRadius, primaryColor } =
-      vars
+  self(vars) {
+    const {
+      primaryColorSuppl,
+      opacityDisabled,
+      borderRadius,
+      primaryColor,
+      textColor2,
+      baseColor
+    } = vars
     const railOverlayColor = 'rgba(255, 255, 255, .20)'
     return {
       ...commonVars,
+      iconColor: baseColor,
+      textColor: textColor2,
+      loadingColor: primaryColorSuppl,
       opacityDisabled,
       railColor: railOverlayColor,
       railColorActive: primaryColorSuppl,

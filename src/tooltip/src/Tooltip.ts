@@ -1,42 +1,46 @@
+import type { ThemeProps } from '../../_mixins'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import type { PopoverInst, PopoverSlots } from '../../popover'
+import type { TooltipTheme } from '../styles'
 // Tooltip: popover wearing waistcoat
-import { h, defineComponent, ref, computed } from 'vue'
+import { computed, defineComponent, h, ref, type SlotsType } from 'vue'
+import { useConfig, useTheme } from '../../_mixins'
 import { NPopover } from '../../popover'
 import { popoverBaseProps } from '../../popover/src/Popover'
-import type { PopoverInst } from '../../popover'
-import { useTheme } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
 import { tooltipLight } from '../styles'
-import type { TooltipTheme } from '../styles'
-import type { ExtractPublicPropTypes } from '../../_utils'
 
 export type TooltipInst = PopoverInst
 
-const tooltipProps = {
+export const tooltipProps = {
   ...popoverBaseProps,
   ...(useTheme.props as ThemeProps<TooltipTheme>)
 }
 
 export type TooltipProps = ExtractPublicPropTypes<typeof tooltipProps>
 
+export interface TooltipSlots extends PopoverSlots {}
+
 export default defineComponent({
   name: 'Tooltip',
   props: tooltipProps,
-  setup (props) {
+  slots: Object as SlotsType<TooltipSlots>,
+  __popover__: true,
+  setup(props) {
+    const { mergedClsPrefixRef } = useConfig(props)
     const themeRef = useTheme(
       'Tooltip',
-      'Tooltip',
+      '-tooltip',
       undefined,
       tooltipLight,
-      props
+      props,
+      mergedClsPrefixRef
     )
     const popoverRef = ref<PopoverInst | null>(null)
     const tooltipExposedMethod: TooltipInst = {
-      syncPosition () {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      syncPosition() {
         popoverRef.value!.syncPosition()
       },
-      setShow (show: boolean) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      setShow(show: boolean) {
         popoverRef.value!.setShow(show)
       }
     }
@@ -49,8 +53,8 @@ export default defineComponent({
       })
     }
   },
-  render () {
-    const { mergedTheme } = this
+  render() {
+    const { mergedTheme, internalExtraClass } = this
     return h(
       NPopover,
       {
@@ -58,7 +62,7 @@ export default defineComponent({
         theme: mergedTheme.peers.Popover,
         themeOverrides: mergedTheme.peerOverrides.Popover,
         builtinThemeOverrides: this.popoverThemeOverrides,
-        internalExtraClass: 'tooltip',
+        internalExtraClass: internalExtraClass.concat('tooltip'),
         ref: 'popoverRef'
       },
       this.$slots

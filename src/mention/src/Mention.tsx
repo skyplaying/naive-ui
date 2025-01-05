@@ -1,58 +1,82 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import {
-  defineComponent,
-  h,
-  PropType,
-  ref,
-  toRef,
-  nextTick,
-  computed,
-  Transition,
-  CSSProperties
-} from 'vue'
-import { createTreeMate } from 'treemate'
-import { VBinder, VFollower, VTarget, FollowerInst } from 'vueuc'
-import { useIsMounted, useMergedState } from 'vooks'
-import type { Size as InputSize } from '../../input/src/interface'
-import { NInput } from '../../input'
+import type { InternalSelectMenuRef } from '../../_internal'
+import type { RenderLabel } from '../../_internal/select-menu/src/interface'
+import type { ThemeProps } from '../../_mixins'
+import type { ExtractPublicPropTypes, MaybeArray } from '../../_utils'
+import type { FormValidationStatus } from '../../form/src/interface'
 import type { InputInst } from '../../input'
+import type { Size as InputSize } from '../../input/src/interface'
 import type {
   SelectBaseOption,
   SelectGroupOption,
   SelectIgnoredOption
 } from '../../select/src/interface'
-import { NInternalSelectMenu } from '../../_internal'
-import type { InternalSelectMenuRef } from '../../_internal'
-import { call, useAdjustedTo, warn } from '../../_utils'
-import type { ExtractPublicPropTypes, MaybeArray } from '../../_utils'
-import { useConfig, useFormItem, useTheme } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
-import { mentionLight } from '../styles'
 import type { MentionTheme } from '../styles'
+import type { MentionOption } from './interface'
+import { createTreeMate, type TreeNode } from 'treemate'
+import { useIsMounted, useMergedState } from 'vooks'
+import {
+  computed,
+  type CSSProperties,
+  defineComponent,
+  h,
+  nextTick,
+  type PropType,
+  ref,
+  type SlotsType,
+  toRef,
+  Transition,
+  type VNode
+} from 'vue'
+import {
+  type FollowerInst,
+  type FollowerPlacement,
+  VBinder,
+  VFollower,
+  VTarget
+} from 'vueuc'
+import { NInternalSelectMenu } from '../../_internal'
+import { useConfig, useFormItem, useTheme, useThemeClass } from '../../_mixins'
+import { call, useAdjustedTo, warn } from '../../_utils'
+import { NInput } from '../../input'
+import { mentionLight } from '../styles'
+import style from './styles/index.cssr'
 import { getRelativePosition } from './utils'
 
-import style from './styles/index.cssr'
-import type { MentionOption } from './interface'
-
-const mentionProps = {
+export const mentionProps = {
   ...(useTheme.props as ThemeProps<MentionTheme>),
   to: useAdjustedTo.propTo,
   autosize: [Boolean, Object] as PropType<
-  boolean | { maxRows?: number, minRows?: number }
+    boolean | { maxRows?: number, minRows?: number }
   >,
   options: {
     type: Array as PropType<MentionOption[]>,
     default: []
   },
+  filter: {
+    type: Function as PropType<
+      (pattern: string, option: MentionOption) => boolean
+    >,
+    default: (pattern: string, option: MentionOption) => {
+      if (!pattern)
+        return true
+      if (typeof option.label === 'string') {
+        return option.label.startsWith(pattern)
+      }
+      if (typeof option.value === 'string') {
+        return option.value.startsWith(pattern)
+      }
+      return false
+    }
+  },
   type: {
-    type: String as PropType<'input' | 'textarea'>,
-    default: 'input'
+    type: String as PropType<'text' | 'textarea'>,
+    default: 'text'
   },
   separator: {
     type: String,
     validator: (separator: string) => {
       if (separator.length !== 1) {
-        warn('mention', "`separator`'s length must be 1.")
+        warn('mention', '`separator`\'s length must be 1.')
         return false
       }
       return true
@@ -78,16 +102,28 @@ const mentionProps = {
     type: String,
     default: ''
   },
+  placement: {
+    type: String as PropType<FollowerPlacement>,
+    default: 'bottom-start'
+  },
   size: String as PropType<InputSize>,
+  renderLabel: Function as PropType<RenderLabel>,
+  status: String as PropType<FormValidationStatus>,
+  'onUpdate:show': [Array, Function] as PropType<
+    MaybeArray<(show: boolean) => void>
+  >,
+  onUpdateShow: [Array, Function] as PropType<
+    MaybeArray<(show: boolean) => void>
+  >,
   'onUpdate:value': [Array, Function] as PropType<
-  MaybeArray<(value: string) => void>
+    MaybeArray<(value: string) => void>
   >,
   onUpdateValue: [Array, Function] as PropType<
-  MaybeArray<(value: string) => void>
+    MaybeArray<(value: string) => void>
   >,
   onSearch: Function as PropType<(pattern: string, prefix: string) => void>,
   onSelect: Function as PropType<
-  (option: MentionOption, prefix: string) => void
+    (option: MentionOption, prefix: string) => void
   >,
   onFocus: Function as PropType<(e: FocusEvent) => void>,
   onBlur: Function as PropType<(e: FocusEvent) => void>,
@@ -97,15 +133,25 @@ const mentionProps = {
 
 export type MentionProps = ExtractPublicPropTypes<typeof mentionProps>
 
+export interface MentionSlots {
+  default?: () => VNode[]
+  empty?: () => VNode[]
+}
+
 export default defineComponent({
   name: 'Mention',
   props: mentionProps,
-  setup (props) {
-    const { namespaceRef, mergedClsPrefixRef, mergedBorderedRef } =
-      useConfig(props)
+  slots: Object as SlotsType<MentionSlots>,
+  setup(props) {
+    const {
+      namespaceRef,
+      mergedClsPrefixRef,
+      mergedBorderedRef,
+      inlineThemeDisabled
+    } = useConfig(props)
     const themeRef = useTheme(
       'Mention',
-      'Mention',
+      '-mention',
       style,
       mentionLight,
       props,
@@ -115,6 +161,7 @@ export default defineComponent({
     const inputInstRef = ref<InputInst | null>(null)
     const cursorRef = ref<HTMLElement | null>(null)
     const followerRef = ref<FollowerInst | null>(null)
+    const wrapperElRef = ref<HTMLElement | null>(null)
     const partialPatternRef = ref<string>('')
     let cachedPrefix: string | null = null
     // cached pattern end is for partial pattern
@@ -124,22 +171,19 @@ export default defineComponent({
     let cachedPartialPatternEnd: number | null = null
     const filteredOptionsRef = computed(() => {
       const { value: pattern } = partialPatternRef
-      return props.options.filter((option) => {
-        if (!pattern) return true
-        return option.label.startsWith(pattern)
-      })
+      return props.options.filter(option => props.filter(pattern, option))
     })
     const treeMateRef = computed(() => {
       return createTreeMate<
-      SelectBaseOption,
-      SelectGroupOption,
-      SelectIgnoredOption
-      // We need to cast filteredOptionsRef's type since the render function
-      // is not compitable
-      // MentionOption { value: string, render?: (value: string) => VNodeChild }
-      // SelectOption { value: string | number, render?: (value: string | number) => VNodeChild }
-      // The 2 types are not compatible since `render`s are not compatible
-      // However we know it works...
+        SelectBaseOption,
+        SelectGroupOption,
+        SelectIgnoredOption
+        // We need to cast filteredOptionsRef's type since the render function
+        // is not compatible
+        // MentionOption { value: string, render?: (value: string) => VNodeChild }
+        // SelectOption { value: string | number, render?: (value: string | number) => VNodeChild }
+        // The 2 types are not compatible since `render`s are not compatible
+        // However we know it works...
       >(filteredOptionsRef.value as any, {
         getKey: (v) => {
           return (v as any).value
@@ -154,8 +198,25 @@ export default defineComponent({
       controlledValueRef,
       uncontrolledValueRef
     )
-    function doUpdateShowMenu (show: boolean): void {
-      if (props.disabled) return
+    const cssVarsRef = computed(() => {
+      const {
+        self: { menuBoxShadow }
+      } = themeRef.value
+      return {
+        '--n-menu-box-shadow': menuBoxShadow
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass('mention', undefined, cssVarsRef, props)
+      : undefined
+    function doUpdateShowMenu(show: boolean): void {
+      if (props.disabled)
+        return
+      const { onUpdateShow, 'onUpdate:show': _onUpdateShow } = props
+      if (onUpdateShow)
+        call(onUpdateShow, show)
+      if (_onUpdateShow)
+        call(_onUpdateShow, show)
       if (!show) {
         cachedPrefix = null
         cachedPartialPatternStart = null
@@ -163,7 +224,7 @@ export default defineComponent({
       }
       showMenuRef.value = show
     }
-    function doUpdateValue (value: string): void {
+    function doUpdateValue(value: string): void {
       const { onUpdateValue, 'onUpdate:value': _onUpdateValue } = props
       const { nTriggerFormChange, nTriggerFormInput } = formItem
       if (_onUpdateValue) {
@@ -176,12 +237,12 @@ export default defineComponent({
       nTriggerFormChange()
       uncontrolledValueRef.value = value
     }
-    function getInputEl (): HTMLInputElement | HTMLTextAreaElement {
-      return props.type === 'input'
+    function getInputEl(): HTMLInputElement | HTMLTextAreaElement {
+      return props.type === 'text'
         ? inputInstRef.value!.inputElRef!
         : inputInstRef.value!.textareaElRef!
     }
-    function deriveShowMenu (): void {
+    function deriveShowMenu(): void {
       const inputEl = getInputEl()
       if (document.activeElement !== inputEl) {
         doUpdateShowMenu(false)
@@ -215,24 +276,28 @@ export default defineComponent({
       }
       doUpdateShowMenu(false)
     }
-    function syncCursor (): void {
+    function syncCursor(): void {
       const { value: cursorAnchor } = cursorRef
-      if (!cursorAnchor) return
+      if (!cursorAnchor)
+        return
       const inputEl = getInputEl()
       const cursorPos: {
         left: number
         top: number
         height: number
       } = getRelativePosition(inputEl)
-      cursorPos.left += inputEl.parentElement!.offsetLeft
-      cursorAnchor.style.left = `${cursorPos.left}px`
-      cursorAnchor.style.top = `${cursorPos.top + cursorPos.height}px`
+      const inputRect = inputEl.getBoundingClientRect()
+      const wrapperRect = wrapperElRef.value!.getBoundingClientRect()
+      cursorAnchor.style.left = `${cursorPos.left + inputRect.left - wrapperRect.left}px`
+      cursorAnchor.style.top = `${cursorPos.top + inputRect.top - wrapperRect.top}px`
+      cursorAnchor.style.height = `${cursorPos.height}px`
     }
-    function syncPosition (): void {
-      if (!showMenuRef.value) return
+    function syncPosition(): void {
+      if (!showMenuRef.value)
+        return
       followerRef.value?.syncPosition()
     }
-    function handleInputUpdateValue (value: string): void {
+    function handleInputUpdateValue(value: string): void {
       doUpdateValue(value)
       // Vue update is mirco task.
       // So DOM must have been done when sync start in marco task.
@@ -241,65 +306,78 @@ export default defineComponent({
       // happens.
       syncAfterCursorMove()
     }
-    function syncAfterCursorMove (): void {
+    function syncAfterCursorMove(): void {
       setTimeout(() => {
         syncCursor()
         deriveShowMenu()
         void nextTick().then(syncPosition)
       }, 0)
     }
-    function handleInputKeyDown (e: KeyboardEvent): void {
-      if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
-        if (inputInstRef.value?.isCompositing) return
+    function handleInputKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (inputInstRef.value?.isCompositing)
+          return
         syncAfterCursorMove()
-      } else if (
-        e.code === 'ArrowUp' ||
-        e.code === 'ArrowDown' ||
-        e.code === 'Enter'
+      }
+      else if (
+        e.key === 'ArrowUp'
+        || e.key === 'ArrowDown'
+        || e.key === 'Enter'
       ) {
-        if (inputInstRef.value?.isCompositing) return
+        if (inputInstRef.value?.isCompositing)
+          return
         const { value: selectMenuInst } = selectMenuInstRef
         if (showMenuRef.value) {
           if (selectMenuInst) {
             e.preventDefault()
-            if (e.code === 'ArrowUp') {
+            if (e.key === 'ArrowUp') {
               selectMenuInst.prev()
-            } else if (e.code === 'ArrowDown') {
+            }
+            else if (e.key === 'ArrowDown') {
               selectMenuInst.next()
-            } else {
+            }
+            else {
               // Enter
-              const option = selectMenuInst.getPendingOption()
-              if (option) {
-                handleSelect(option)
-              } else {
+              const pendingOptionTmNode = selectMenuInst.getPendingTmNode()
+              if (pendingOptionTmNode) {
+                handleSelect(pendingOptionTmNode)
+              }
+              else {
                 doUpdateShowMenu(false)
               }
             }
           }
-        } else {
+        }
+        else {
           syncAfterCursorMove()
         }
       }
     }
-    function handleInputFocus (e: FocusEvent): void {
+    function handleInputFocus(e: FocusEvent): void {
       const { onFocus } = props
       onFocus?.(e)
       const { nTriggerFormFocus } = formItem
       nTriggerFormFocus()
       syncAfterCursorMove()
     }
-    function handleInputBlur (e: FocusEvent): void {
+    function focus(): void {
+      inputInstRef.value?.focus()
+    }
+    function blur(): void {
+      inputInstRef.value?.blur()
+    }
+    function handleInputBlur(e: FocusEvent): void {
       const { onBlur } = props
       onBlur?.(e)
       const { nTriggerFormBlur } = formItem
       nTriggerFormBlur()
       doUpdateShowMenu(false)
     }
-    function handleSelect (option: SelectBaseOption): void {
+    function handleSelect(tmNode: TreeNode<SelectBaseOption>): void {
       if (
-        cachedPrefix === null ||
-        cachedPartialPatternStart === null ||
-        cachedPartialPatternEnd === null
+        cachedPrefix === null
+        || cachedPartialPatternStart === null
+        || cachedPartialPatternEnd === null
       ) {
         if (__DEV__) {
           warn(
@@ -309,7 +387,9 @@ export default defineComponent({
         }
         return
       }
-      const { value } = option
+      const {
+        rawNode: { value = '' }
+      } = tmNode
       const inputEl = getInputEl()
       const inputValue = inputEl.value
       const { separator } = props
@@ -317,15 +397,15 @@ export default defineComponent({
       const alreadySeparated = nextEndPart.startsWith(separator)
       const nextMiddlePart = `${value}${alreadySeparated ? '' : separator}`
       doUpdateValue(
-        inputValue.slice(0, cachedPartialPatternStart) +
-          nextMiddlePart +
-          nextEndPart
+        inputValue.slice(0, cachedPartialPatternStart)
+        + nextMiddlePart
+        + nextEndPart
       )
-      props.onSelect?.(option as MentionOption, cachedPrefix)
-      const nextSelectionEnd =
-        cachedPartialPatternStart +
-        nextMiddlePart.length +
-        (alreadySeparated ? 1 : 0)
+      props.onSelect?.(tmNode.rawNode as MentionOption, cachedPrefix)
+      const nextSelectionEnd
+        = cachedPartialPatternStart
+        + nextMiddlePart.length
+        + (alreadySeparated ? 1 : 0)
       void nextTick().then(() => {
         // input value is updated
         inputEl.selectionStart = nextSelectionEnd
@@ -333,7 +413,7 @@ export default defineComponent({
         deriveShowMenu()
       })
     }
-    function handleInputMouseDown (): void {
+    function handleInputMouseDown(): void {
       if (!props.disabled) {
         syncAfterCursorMove()
       }
@@ -343,12 +423,14 @@ export default defineComponent({
       mergedClsPrefix: mergedClsPrefixRef,
       mergedBordered: mergedBorderedRef,
       mergedSize: formItem.mergedSizeRef,
+      mergedStatus: formItem.mergedStatusRef,
       mergedTheme: themeRef,
       treeMate: treeMateRef,
       selectMenuInstRef,
       inputInstRef,
       cursorRef,
       followerRef,
+      wrapperElRef,
       showMenu: showMenuRef,
       adjustedTo: useAdjustedTo(props),
       isMounted: useIsMounted(),
@@ -359,21 +441,19 @@ export default defineComponent({
       handleInputKeyDown,
       handleSelect,
       handleInputMouseDown,
-      cssVars: computed(() => {
-        const {
-          self: { menuBoxShadow }
-        } = themeRef.value
-        return {
-          '--menu-box-shadow': menuBoxShadow
-        }
-      })
+      focus,
+      blur,
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
-    const { mergedTheme, mergedClsPrefix } = this
+  render() {
+    const { mergedTheme, mergedClsPrefix, $slots } = this
     return (
-      <div class={`${mergedClsPrefix}-mention`}>
+      <div class={`${mergedClsPrefix}-mention`} ref="wrapperElRef">
         <NInput
+          status={this.mergedStatus}
           themeOverrides={mergedTheme.peerOverrides.Input}
           theme={mergedTheme.peers.Input}
           size={this.mergedSize}
@@ -398,21 +478,19 @@ export default defineComponent({
                   default: () => {
                     const style: CSSProperties = {
                       position: 'absolute',
-                      width: 0,
-                      height: 0
+                      width: 0
                     }
                     if (__DEV__ && this.internalDebug) {
                       style.width = '1px'
-                      style.height = '1px'
                       style.background = 'red'
                     }
-                    return <div style={style} ref="cursorRef"></div>
+                    return <div style={style} ref="cursorRef" />
                   }
                 }}
               </VTarget>,
               <VFollower
                 ref="followerRef"
-                placement="bottom-start"
+                placement={this.placement}
                 show={this.showMenu}
                 containerClass={this.namespace}
                 to={this.adjustedTo}
@@ -426,7 +504,8 @@ export default defineComponent({
                     >
                       {{
                         default: () => {
-                          const { mergedTheme } = this
+                          const { mergedTheme, onRender } = this
+                          onRender?.()
                           return this.showMenu ? (
                             <NInternalSelectMenu
                               clsPrefix={mergedClsPrefix}
@@ -436,13 +515,19 @@ export default defineComponent({
                               }
                               autoPending
                               ref="selectMenuInstRef"
-                              class={`${mergedClsPrefix}-mention-menu`}
+                              class={[
+                                `${mergedClsPrefix}-mention-menu`,
+                                this.themeClass
+                              ]}
                               loading={this.loading}
                               treeMate={this.treeMate}
                               virtualScroll={false}
-                              style={this.cssVars as CSSProperties}
-                              onMenuToggleOption={this.handleSelect}
-                            />
+                              style={this.cssVars as any}
+                              onToggle={this.handleSelect}
+                              renderLabel={this.renderLabel}
+                            >
+                              {$slots}
+                            </NInternalSelectMenu>
                           ) : null
                         }
                       }}

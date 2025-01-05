@@ -1,16 +1,19 @@
+import { useMemo } from 'vooks'
 import {
   defineComponent,
   h,
-  InjectionKey,
-  PropType,
+  type PropType,
   provide,
-  Ref,
+  type Ref,
   toRef
 } from 'vue'
-import { useMemo } from 'vooks'
-import type { ExtractPublicPropTypes } from '../../_utils'
-import { formatLength, keysOf } from '../../_utils'
-import { useConfig, useStyle } from '../../_mixins'
+import { useConfig, useRtl, useStyle } from '../../_mixins'
+import {
+  createInjectionKey,
+  type ExtractPublicPropTypes,
+  formatLength,
+  keysOf
+} from '../../_utils'
 import style from './styles/index.cssr'
 
 export interface RowInjection {
@@ -20,12 +23,12 @@ export interface RowInjection {
   mergedClsPrefixRef: Ref<string>
 }
 
-export const rowInjectionKey: InjectionKey<RowInjection> = Symbol('row')
+export const rowInjectionKey = createInjectionKey<RowInjection>('n-row')
 
 export const rowProps = {
   gutter: {
     type: [Array, Number, String] as PropType<
-    string | number | [number, number]
+      string | number | [number, number]
     >,
     default: 0
   },
@@ -40,9 +43,10 @@ export type RowProps = ExtractPublicPropTypes<typeof rowProps>
 export default defineComponent({
   name: 'Row',
   props: rowProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
-    useStyle('LegacyGrid', style, mergedClsPrefixRef)
+  setup(props) {
+    const { mergedClsPrefixRef, mergedRtlRef } = useConfig(props)
+    useStyle('-legacy-grid', style, mergedClsPrefixRef)
+    const rtlEnabledRef = useRtl('Row', mergedRtlRef, mergedClsPrefixRef)
     const verticalGutterRef = useMemo(() => {
       const { gutter } = props
       if (Array.isArray(gutter)) {
@@ -60,11 +64,12 @@ export default defineComponent({
     provide(rowInjectionKey, {
       mergedClsPrefixRef,
       gutterRef: toRef(props, 'gutter'),
-      verticalGutterRef: verticalGutterRef,
-      horizontalGutterRef: horizontalGutterRef
+      verticalGutterRef,
+      horizontalGutterRef
     })
     return {
       mergedClsPrefix: mergedClsPrefixRef,
+      rtlEnabled: rtlEnabledRef,
       styleMargin: useMemo(
         () =>
           `-${formatLength(verticalGutterRef.value, {
@@ -76,10 +81,13 @@ export default defineComponent({
       )
     }
   },
-  render () {
+  render() {
     return (
       <div
-        class={`${this.mergedClsPrefix}-row`}
+        class={[
+          `${this.mergedClsPrefix}-row`,
+          this.rtlEnabled && `${this.mergedClsPrefix}-row--rtl`
+        ]}
         style={{
           margin: this.styleMargin,
           width: this.styleWidth,

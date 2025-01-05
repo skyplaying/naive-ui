@@ -2,8 +2,8 @@
 
 <!--single-column-->
 
-<n-alert title="Caveat" type="warning" style="margin-bottom: 16px">
-  The legacy grid won't add any new features. <br /> Most of time you should use <router-link to="grid" #="{ navigate, href }" custom><n-a :href="href" @click="navigate">Grid</n-a></router-link>.
+<n-alert title="Caveat" type="warning" style="margin-bottom: 16px" :bordered="false">
+  At most of time you should use <router-link to="grid" #="{ navigate, href }" custom><n-a :href="href" @click="navigate">Grid</n-a></router-link>.
 </n-alert>
 
 A basic grid system.
@@ -11,13 +11,13 @@ A basic grid system.
 ## Demos
 
 ```demo
-basic
-gutter
-offset
-push-pull
+basic.vue
+gutter.vue
+offset.vue
+push-pull.vue
 ```
 
-## Props
+## API
 
 ### Row Props
 

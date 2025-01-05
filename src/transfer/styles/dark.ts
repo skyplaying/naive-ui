@@ -1,11 +1,11 @@
-import commonVariables from './_common'
-import { checkboxDark } from '../../checkbox/styles'
-import { scrollbarDark } from '../../scrollbar/styles'
-import { inputDark } from '../../input/styles'
-import { commonDark } from '../../_styles/common'
-import { emptyDark } from '../../empty/styles'
-import { buttonDark } from '../../button/styles'
 import type { TransferTheme } from './light'
+import { scrollbarDark } from '../../_internal/scrollbar/styles'
+import { commonDark } from '../../_styles/common'
+import { buttonDark } from '../../button/styles'
+import { checkboxDark } from '../../checkbox/styles'
+import { emptyDark } from '../../empty/styles'
+import { inputDark } from '../../input/styles'
+import commonVariables from './_common'
 
 const transferDark: TransferTheme = {
   name: 'Transfer',
@@ -17,47 +17,55 @@ const transferDark: TransferTheme = {
     Empty: emptyDark,
     Button: buttonDark
   },
-  self (vars) {
+  self(vars) {
     const {
-      iconColorDisabled,
-      iconColor,
       fontWeight,
       fontSizeLarge,
       fontSizeMedium,
       fontSizeSmall,
       heightLarge,
       heightMedium,
-      heightSmall,
       borderRadius,
       inputColor,
       tableHeaderColor,
       textColor1,
       textColorDisabled,
       textColor2,
-      hoverColor
+      textColor3,
+      hoverColor,
+      closeColorHover,
+      closeColorPressed,
+      closeIconColor,
+      closeIconColorHover,
+      closeIconColorPressed,
+      dividerColor
     } = vars
     return {
       ...commonVariables,
-      itemHeightSmall: heightSmall,
+      itemHeightSmall: heightMedium,
       itemHeightMedium: heightMedium,
       itemHeightLarge: heightLarge,
       fontSizeSmall,
       fontSizeMedium,
       fontSizeLarge,
       borderRadius,
+      dividerColor,
       borderColor: '#0000',
       listColor: inputColor,
       headerColor: tableHeaderColor,
       titleTextColor: textColor1,
       titleTextColorDisabled: textColorDisabled,
-      extraTextColor: textColor2,
-      filterDividerColor: '#0000',
+      extraTextColor: textColor3,
+      extraTextColorDisabled: textColorDisabled,
       itemTextColor: textColor2,
       itemTextColorDisabled: textColorDisabled,
       itemColorPending: hoverColor,
       titleFontWeight: fontWeight,
-      iconColor,
-      iconColorDisabled
+      closeColorHover,
+      closeColorPressed,
+      closeIconColor,
+      closeIconColorHover,
+      closeIconColorPressed
     }
   }
 }

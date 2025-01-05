@@ -1,169 +1,161 @@
-import { ref, computed, toRef } from 'vue'
-import { useMemo, useMergedState } from 'vooks'
-import type { Option, OptionValue, Filter, CheckedStatus } from './interface'
+import type { Filter, Option, OptionValue } from './interface'
+import { useMergedState } from 'vooks'
+import { computed, ref, toRef } from 'vue'
 
 interface UseTransferDataProps {
   defaultValue: OptionValue[] | null
   value?: OptionValue[] | null
   options: Option[]
-  filterable: boolean
-  disabled: boolean
+  filterable: boolean | undefined
+  sourceFilterable: boolean
+  targetFilterable: boolean
+  showSelected: boolean
   filter: Filter
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function useTransferData (props: UseTransferDataProps) {
+export function useTransferData(props: UseTransferDataProps) {
   const uncontrolledValueRef = ref(props.defaultValue)
-  const controlledValueRef = toRef(props, 'value')
   const mergedValueRef = useMergedState(
-    controlledValueRef,
+    toRef(props, 'value'),
     uncontrolledValueRef
   )
-  const optMapRef = computed(() => {
+
+  const optionsMapRef = computed(() => {
     const map = new Map()
-    ;(props.options || []).forEach((opt) => map.set(opt.value, opt))
-    return map
+    ;(props.options || []).forEach(opt => map.set(opt.value, opt))
+    return map as Map<OptionValue, Option>
   })
-  const tgtValueSetRef = computed(() => new Set(mergedValueRef.value || []))
-  const srcOptsRef = computed(() =>
-    props.options.filter((option) => !tgtValueSetRef.value.has(option.value))
-  )
-  const tgtOptsRef = computed(() => {
-    const optMap = optMapRef.value
-    return (mergedValueRef.value || []).map((v) => optMap.get(v))
+
+  const targetValueSetRef = computed(() => new Set(mergedValueRef.value || []))
+
+  const targetOptionsRef = computed(() => {
+    const optionMap = optionsMapRef.value
+    const targetOptions: Option[] = []
+    ;(mergedValueRef.value || []).forEach((v) => {
+      const option = optionMap.get(v)
+      if (option) {
+        targetOptions.push(option)
+      }
+    })
+    return targetOptions
   })
+
   const srcPatternRef = ref('')
   const tgtPatternRef = ref('')
-  const filteredSrcOptsRef = computed(() => {
-    if (!props.filterable) return srcOptsRef.value
-    const { filter } = props
-    return srcOptsRef.value.filter((opt) =>
-      filter(srcPatternRef.value, opt, 'source')
-    )
+
+  const mergedSrcFilterableRef = computed(() => {
+    return props.sourceFilterable || !!props.filterable
   })
-  const filteredTgtOptsRef = computed(() => {
-    if (!props.filterable) return tgtOptsRef.value
+
+  const filteredSrcOptionsRef = computed(() => {
+    const { showSelected, options, filter } = props
+    if (!mergedSrcFilterableRef.value) {
+      if (showSelected) {
+        return options
+      }
+      else {
+        return options.filter(
+          option => !targetValueSetRef.value.has(option.value)
+        )
+      }
+    }
+    return options.filter((option) => {
+      return (
+        filter(srcPatternRef.value, option, 'source')
+        && (showSelected || !targetValueSetRef.value.has(option.value))
+      )
+    })
+  })
+
+  const filteredTgtOptionsRef = computed(() => {
+    if (!props.targetFilterable)
+      return targetOptionsRef.value
     const { filter } = props
-    return tgtOptsRef.value.filter((opt) =>
+    return targetOptionsRef.value.filter(opt =>
       filter(tgtPatternRef.value, opt, 'target')
     )
   })
-  const avlSrcValueSetRef = computed(
-    () =>
-      new Set(
-        filteredSrcOptsRef.value
-          .filter((opt) => !opt.disabled)
-          .map((opt) => opt.value)
-      )
-  )
-  const avlTgtValueSetRef = computed(
-    () =>
-      new Set(
-        filteredTgtOptsRef.value
-          .filter((opt) => !opt.disabled)
-          .map((opt) => opt.value)
-      )
-  )
-  const srcCheckedValuesRef = ref<OptionValue[]>([])
-  const tgtCheckedValuesRef = ref<OptionValue[]>([])
-  const srcCheckedStatusRef = computed<CheckedStatus>(() => {
-    const srcCheckedLength = srcCheckedValuesRef.value.filter((v) =>
-      avlSrcValueSetRef.value.has(v)
-    ).length
-    const avlValueCount = avlSrcValueSetRef.value.size
-    if (avlValueCount === 0) {
-      return {
-        checked: false,
-        indeterminate: false,
-        disabled: true
+
+  const mergedValueSetRef = computed<Set<string | number>>(() => {
+    const { value } = mergedValueRef
+    if (value === null)
+      return new Set()
+    return new Set(value)
+  })
+
+  const valueSetForCheckAllRef = computed(() => {
+    const values = new Set<string | number>(mergedValueSetRef.value)
+    filteredSrcOptionsRef.value.forEach((option) => {
+      if (!option.disabled && !values.has(option.value)) {
+        values.add(option.value)
       }
-    } else if (srcCheckedLength === 0) {
-      return {
-        checked: false,
-        indeterminate: false
+    })
+    return values
+  })
+
+  const valueSetForUncheckAllRef = computed(() => {
+    const values = new Set<string | number>(mergedValueSetRef.value)
+    filteredSrcOptionsRef.value.forEach((option) => {
+      if (!option.disabled && values.has(option.value)) {
+        values.delete(option.value)
       }
-    } else if (srcCheckedLength === avlValueCount) {
-      return {
-        checked: true,
-        indeterminate: false
+    })
+    return values
+  })
+
+  const valueSetForClearRef = computed(() => {
+    const values = new Set<string | number>(mergedValueSetRef.value)
+    filteredTgtOptionsRef.value.forEach((option) => {
+      if (!option.disabled) {
+        values.delete(option.value)
       }
-    } else {
-      return {
-        checked: false,
-        indeterminate: true
-      }
+    })
+    return values
+  })
+
+  const canNotSelectAnythingRef = computed(() => {
+    return filteredSrcOptionsRef.value.every(option => option.disabled)
+  })
+
+  const allCheckedRef = computed(() => {
+    if (!filteredSrcOptionsRef.value.length) {
+      return false
     }
+    const mergedValueSet = mergedValueSetRef.value
+    return filteredSrcOptionsRef.value.every(
+      option => option.disabled || mergedValueSet.has(option.value)
+    )
   })
-  const tgtCheckedStatusRef = computed(() => {
-    const tgtCheckedLength = tgtCheckedValuesRef.value.filter((v) =>
-      avlTgtValueSetRef.value.has(v)
-    ).length
-    const avlValueCount = avlTgtValueSetRef.value.size
-    if (avlValueCount === 0) {
-      return {
-        checked: false,
-        indeterminate: false,
-        disabled: true
-      }
-    } else if (tgtCheckedLength === 0) {
-      return {
-        checked: false,
-        indeterminate: false
-      }
-    } else if (tgtCheckedLength === avlValueCount) {
-      return {
-        checked: true,
-        indeterminate: false
-      }
-    } else {
-      return {
-        checked: false,
-        indeterminate: true
-      }
-    }
+
+  const canBeClearedRef = computed(() => {
+    return filteredTgtOptionsRef.value.some(option => !option.disabled)
   })
-  const fromButtonDisabledRef = useMemo(() => {
-    if (props.disabled) return true
-    return tgtCheckedValuesRef.value.length === 0
-  })
-  const toButtonDisabledRef = useMemo(() => {
-    if (props.disabled) return true
-    return srcCheckedValuesRef.value.length === 0
-  })
-  const isInputingRef = ref(false)
-  function handleInputFocus (): void {
-    isInputingRef.value = true
-  }
-  function handleInputBlur (): void {
-    isInputingRef.value = false
-  }
-  function handleSrcFilterUpdateValue (value: string | null): void {
+
+  function handleSrcFilterUpdateValue(value: string | null): void {
     srcPatternRef.value = value ?? ''
   }
-  function handleTgtFilterUpdateValue (value: string | null): void {
+
+  function handleTgtFilterUpdateValue(value: string | null): void {
     tgtPatternRef.value = value ?? ''
   }
+
   return {
-    uncontrolledValue: uncontrolledValueRef,
-    mergedValue: mergedValueRef,
-    avlSrcValueSet: avlSrcValueSetRef,
-    avlTgtValueSet: avlTgtValueSetRef,
-    tgtOpts: tgtOptsRef,
-    srcOpts: srcOptsRef,
-    filteredSrcOpts: filteredSrcOptsRef,
-    filteredTgtOpts: filteredTgtOptsRef,
-    srcCheckedValues: srcCheckedValuesRef,
-    tgtCheckedValues: tgtCheckedValuesRef,
-    srcCheckedStatus: srcCheckedStatusRef,
-    tgtCheckedStatus: tgtCheckedStatusRef,
-    srcPattern: srcPatternRef,
-    tgtPattern: tgtPatternRef,
-    isInputing: isInputingRef,
-    fromButtonDisabled: fromButtonDisabledRef,
-    toButtonDisabled: toButtonDisabledRef,
-    handleInputFocus,
-    handleInputBlur,
-    handleTgtFilterUpdateValue,
-    handleSrcFilterUpdateValue
+    uncontrolledValueRef,
+    mergedValueRef,
+    targetValueSetRef,
+    valueSetForCheckAllRef,
+    valueSetForUncheckAllRef,
+    valueSetForClearRef,
+    filteredTgtOptionsRef,
+    filteredSrcOptionsRef,
+    targetOptionsRef,
+    canNotSelectAnythingRef,
+    canBeClearedRef,
+    allCheckedRef,
+    srcPatternRef,
+    tgtPatternRef,
+    mergedSrcFilterableRef,
+    handleSrcFilterUpdateValue,
+    handleTgtFilterUpdateValue
   }
 }

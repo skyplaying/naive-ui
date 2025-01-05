@@ -1,10 +1,10 @@
-import { scrollbarLight } from '../../scrollbar/styles'
-import { commonLight } from '../../_styles/common'
 import type { ThemeCommonVars } from '../../_styles/common'
+import { scrollbarLight } from '../../_internal/scrollbar/styles'
 import { createTheme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
 import commonVars from './_common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     textColor2,
     successColor,
@@ -12,8 +12,11 @@ export const self = (vars: ThemeCommonVars) => {
     warningColor,
     errorColor,
     popoverColor,
-    closeColor,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
     closeColorHover,
+    closeColorPressed,
     textColor1,
     textColor3,
     borderRadius,
@@ -35,9 +38,12 @@ export const self = (vars: ThemeCommonVars) => {
     iconColorError: errorColor,
     color: popoverColor,
     textColor: textColor2,
-    closeColor: closeColor,
-    closeColorHover: closeColorHover,
-    closeColorPressed: closeColor,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
+    closeBorderRadius: borderRadius,
+    closeColorHover,
+    closeColorPressed,
     headerTextColor: textColor1,
     descriptionTextColor: textColor3,
     actionTextColor: textColor2,

@@ -1,78 +1,50 @@
-import {
-  h,
-  defineComponent,
-  computed,
-  VNodeChild,
-  PropType,
-  renderSlot,
-  CSSProperties
-} from 'vue'
-import { useConfig, useTheme } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
-import { render, createKey, keysOf } from '../../_utils'
-import type { ExtractPublicPropTypes } from '../../_utils'
-import { NBaseIcon, NBaseClose } from '../../_internal'
-import { NButton } from '../../button'
+import type { DialogTheme } from '../styles'
+import { getMargin } from 'seemly'
 import {
+  computed,
+  type CSSProperties,
+  defineComponent,
+  h,
+  type SlotsType,
+  type VNode
+} from 'vue'
+import { NBaseClose, NBaseIcon } from '../../_internal'
+import {
+  ErrorIcon,
   InfoIcon,
   SuccessIcon,
-  WarningIcon,
-  ErrorIcon
+  WarningIcon
 } from '../../_internal/icons'
+import { useConfig, useRtl, useTheme, useThemeClass } from '../../_mixins'
+import {
+  createKey,
+  render,
+  resolveSlot,
+  resolveWrappedSlot
+} from '../../_utils'
+import { NButton } from '../../button'
 import { dialogLight } from '../styles'
-import type { DialogTheme } from '../styles'
-import type { IconPlacement } from './interface'
+import { dialogProps } from './dialogProps'
 import style from './styles/index.cssr'
 
-const infoIcon = <InfoIcon />
-
-const iconMap = {
-  default: infoIcon,
-  info: infoIcon,
-  success: <SuccessIcon />,
-  warning: <WarningIcon />,
-  error: <ErrorIcon />
+const iconRenderMap = {
+  default: () => <InfoIcon />,
+  info: () => <InfoIcon />,
+  success: () => <SuccessIcon />,
+  warning: () => <WarningIcon />,
+  error: () => <ErrorIcon />
 }
 
-const dialogProps = {
-  icon: Function as PropType<() => VNodeChild>,
-  type: {
-    type: String as PropType<
-    'info' | 'success' | 'warning' | 'error' | 'default'
-    >,
-    default: 'default'
-  },
-  title: String,
-  closable: {
-    type: Boolean,
-    default: true
-  },
-  negativeText: String,
-  positiveText: String,
-  content: [String, Function] as PropType<string | (() => VNodeChild)>,
-  showIcon: {
-    type: Boolean,
-    default: true
-  },
-  loading: {
-    type: Boolean,
-    default: false
-  },
-  bordered: {
-    type: Boolean,
-    default: false as boolean
-  },
-  iconPlacement: String as PropType<IconPlacement>,
-  onPositiveClick: Function as PropType<(e: MouseEvent) => void>,
-  onNegativeClick: Function as PropType<(e: MouseEvent) => void>,
-  onClose: Function as PropType<() => void>
-} as const
+export interface DialogSlots {
+  action?: () => VNode[]
+  default?: () => VNode[]
+  header?: () => VNode[]
+  icon?: () => VNode[]
+  close?: () => VNode[]
+}
 
-export type DialogProps = ExtractPublicPropTypes<typeof dialogProps>
-export { dialogProps }
-export const dialogPropKeys = keysOf(dialogProps)
-
-export default defineComponent({
+export const NDialog = defineComponent({
   name: 'Dialog',
   alias: [
     'NimbusConfirmCard', // deprecated
@@ -82,101 +54,135 @@ export default defineComponent({
     ...(useTheme.props as ThemeProps<DialogTheme>),
     ...dialogProps
   },
-  setup (props) {
-    const { NConfigProvider, mergedClsPrefixRef } = useConfig(props)
+  slots: Object as SlotsType<DialogSlots>,
+  setup(props) {
+    const {
+      mergedComponentPropsRef,
+      mergedClsPrefixRef,
+      inlineThemeDisabled,
+      mergedRtlRef
+    } = useConfig(props)
+    const rtlEnabledRef = useRtl('Dialog', mergedRtlRef, mergedClsPrefixRef)
     const mergedIconPlacementRef = computed(() => {
       const { iconPlacement } = props
       return (
-        iconPlacement ??
-        NConfigProvider?.mergedComponentPropsRef.value?.Dialog?.iconPlacement ??
-        'left'
+        iconPlacement
+        || mergedComponentPropsRef?.value?.Dialog?.iconPlacement
+        || 'left'
       )
     })
-    function handlePositiveClick (e: MouseEvent): void {
+    function handlePositiveClick(e: MouseEvent): void {
       const { onPositiveClick } = props
-      if (onPositiveClick) onPositiveClick(e)
+      if (onPositiveClick)
+        onPositiveClick(e)
     }
-    function handleNegativeClick (e: MouseEvent): void {
+    function handleNegativeClick(e: MouseEvent): void {
       const { onNegativeClick } = props
-      if (onNegativeClick) onNegativeClick(e)
+      if (onNegativeClick)
+        onNegativeClick(e)
     }
-    function handleCloseClick (): void {
+    function handleCloseClick(): void {
       const { onClose } = props
-      if (onClose) onClose()
+      if (onClose)
+        onClose()
     }
     const themeRef = useTheme(
       'Dialog',
-      'Dialog',
+      '-dialog',
       style,
       dialogLight,
       props,
       mergedClsPrefixRef
     )
+    const cssVarsRef = computed(() => {
+      const { type } = props
+      const iconPlacement = mergedIconPlacementRef.value
+      const {
+        common: { cubicBezierEaseInOut },
+        self: {
+          fontSize,
+          lineHeight,
+          border,
+          titleTextColor,
+          textColor,
+          color,
+          closeBorderRadius,
+          closeColorHover,
+          closeColorPressed,
+          closeIconColor,
+          closeIconColorHover,
+          closeIconColorPressed,
+          closeIconSize,
+          borderRadius,
+          titleFontWeight,
+          titleFontSize,
+          padding,
+          iconSize,
+          actionSpace,
+          contentMargin,
+          closeSize,
+          [iconPlacement === 'top' ? 'iconMarginIconTop' : 'iconMargin']:
+            iconMargin,
+          [iconPlacement === 'top' ? 'closeMarginIconTop' : 'closeMargin']:
+            closeMargin,
+          [createKey('iconColor', type)]: iconColor
+        }
+      } = themeRef.value
+      const iconMarginDiscrete = getMargin(iconMargin)
+      return {
+        '--n-font-size': fontSize,
+        '--n-icon-color': iconColor,
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-close-margin': closeMargin,
+        '--n-icon-margin-top': iconMarginDiscrete.top,
+        '--n-icon-margin-right': iconMarginDiscrete.right,
+        '--n-icon-margin-bottom': iconMarginDiscrete.bottom,
+        '--n-icon-margin-left': iconMarginDiscrete.left,
+        '--n-icon-size': iconSize,
+        '--n-close-size': closeSize,
+        '--n-close-icon-size': closeIconSize,
+        '--n-close-border-radius': closeBorderRadius,
+        '--n-close-color-hover': closeColorHover,
+        '--n-close-color-pressed': closeColorPressed,
+        '--n-close-icon-color': closeIconColor,
+        '--n-close-icon-color-hover': closeIconColorHover,
+        '--n-close-icon-color-pressed': closeIconColorPressed,
+        '--n-color': color,
+        '--n-text-color': textColor,
+        '--n-border-radius': borderRadius,
+        '--n-padding': padding,
+        '--n-line-height': lineHeight,
+        '--n-border': border,
+        '--n-content-margin': contentMargin,
+        '--n-title-font-size': titleFontSize,
+        '--n-title-font-weight': titleFontWeight,
+        '--n-title-text-color': titleTextColor,
+        '--n-action-space': actionSpace
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'dialog',
+          computed(() => `${props.type[0]}${mergedIconPlacementRef.value[0]}`),
+          cssVarsRef,
+          props
+        )
+      : undefined
     return {
       mergedClsPrefix: mergedClsPrefixRef,
+      rtlEnabled: rtlEnabledRef,
       mergedIconPlacement: mergedIconPlacementRef,
       mergedTheme: themeRef,
       handlePositiveClick,
       handleNegativeClick,
       handleCloseClick,
-      cssVars: computed(() => {
-        const { type, iconPlacement } = props
-        const {
-          common: { cubicBezierEaseInOut },
-          self: {
-            fontSize,
-            lineHeight,
-            border,
-            titleTextColor,
-            textColor,
-            color,
-            closeColor,
-            closeColorHover,
-            closeColorPressed,
-            borderRadius,
-            titleFontWeight,
-            titleFontSize,
-            padding,
-            iconSize,
-            actionSpace,
-            contentMargin,
-            closeSize,
-            [iconPlacement === 'top' ? 'iconMarginIconTop' : 'iconMargin']:
-              iconMargin,
-            [iconPlacement === 'top' ? 'closeMarginIconTop' : 'closeMargin']:
-              closeMargin,
-            [createKey('iconColor', type)]: iconColor
-          }
-        } = themeRef.value
-        return {
-          '--font-size': fontSize,
-          '--icon-color': iconColor,
-          '--bezier': cubicBezierEaseInOut,
-          '--close-margin': closeMargin,
-          '--icon-margin': iconMargin,
-          '--icon-size': iconSize,
-          '--close-size': closeSize,
-          '--close-color': closeColor,
-          '--close-color-hover': closeColorHover,
-          '--close-color-pressed': closeColorPressed,
-          '--color': color,
-          '--text-color': textColor,
-          '--border-radius': borderRadius,
-          '--padding': padding,
-          '--line-height': lineHeight,
-          '--border': border,
-          '--content-margin': contentMargin,
-          '--title-font-size': titleFontSize,
-          '--title-font-weight': titleFontWeight,
-          '--title-text-color': titleTextColor,
-          '--action-space': actionSpace
-        }
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     const {
-      $slots,
       bordered,
       mergedIconPlacement,
       cssVars,
@@ -184,7 +190,11 @@ export default defineComponent({
       showIcon,
       title,
       content,
+      action,
       negativeText,
+      positiveText,
+      positiveButtonProps,
+      negativeButtonProps,
       handlePositiveClick,
       handleNegativeClick,
       mergedTheme,
@@ -192,86 +202,121 @@ export default defineComponent({
       type,
       mergedClsPrefix
     } = this
+
+    this.onRender?.()
+
+    const icon = showIcon ? (
+      <NBaseIcon
+        clsPrefix={mergedClsPrefix}
+        class={`${mergedClsPrefix}-dialog__icon`}
+      >
+        {{
+          default: () =>
+            resolveWrappedSlot(
+              this.$slots.icon,
+              children =>
+                children
+                || (this.icon ? render(this.icon) : iconRenderMap[this.type]())
+            )
+        }}
+      </NBaseIcon>
+    ) : null
+
+    const actionNode = resolveWrappedSlot(this.$slots.action, children =>
+      children || positiveText || negativeText || action ? (
+        <div
+          class={[`${mergedClsPrefix}-dialog__action`, this.actionClass]}
+          style={this.actionStyle}
+        >
+          {children
+          || (action
+            ? [render(action)]
+            : [
+                this.negativeText && (
+                  <NButton
+                    theme={mergedTheme.peers.Button}
+                    themeOverrides={mergedTheme.peerOverrides.Button}
+                    ghost
+                    size="small"
+                    onClick={handleNegativeClick}
+                    {...negativeButtonProps}
+                  >
+                    {{
+                      default: () => render(this.negativeText)
+                    }}
+                  </NButton>
+                ),
+                this.positiveText && (
+                  <NButton
+                    theme={mergedTheme.peers.Button}
+                    themeOverrides={mergedTheme.peerOverrides.Button}
+                    size="small"
+                    type={type === 'default' ? 'primary' : type}
+                    disabled={loading}
+                    loading={loading}
+                    onClick={handlePositiveClick}
+                    {...positiveButtonProps}
+                  >
+                    {{
+                      default: () => render(this.positiveText)
+                    }}
+                  </NButton>
+                )
+              ])}
+        </div>
+      ) : null)
+
     return (
       <div
         class={[
           `${mergedClsPrefix}-dialog`,
+          this.themeClass,
+          this.closable && `${mergedClsPrefix}-dialog--closable`,
           `${mergedClsPrefix}-dialog--icon-${mergedIconPlacement}`,
-          bordered && `${mergedClsPrefix}-dialog--bordered`
+          bordered && `${mergedClsPrefix}-dialog--bordered`,
+          this.rtlEnabled && `${mergedClsPrefix}-dialog--rtl`
         ]}
         style={cssVars as CSSProperties}
+        role="dialog"
       >
-        {closable ? (
-          <NBaseClose
-            clsPrefix={mergedClsPrefix}
-            class={`${mergedClsPrefix}-dialog__close`}
-            onClick={this.handleCloseClick}
-          />
-        ) : null}
+        {closable
+          ? resolveWrappedSlot(this.$slots.close, (node) => {
+              const classNames = [
+                `${mergedClsPrefix}-dialog__close`,
+                this.rtlEnabled && `${mergedClsPrefix}-dialog--rtl`
+              ]
+              return node ? (
+                <div class={classNames}>{node}</div>
+              ) : (
+                <NBaseClose
+                  clsPrefix={mergedClsPrefix}
+                  class={classNames}
+                  onClick={this.handleCloseClick}
+                />
+              )
+            })
+          : null}
         {showIcon && mergedIconPlacement === 'top' ? (
-          <div class={`${mergedClsPrefix}-dialog-icon-container`}>
-            <NBaseIcon
-              clsPrefix={mergedClsPrefix}
-              class={`${mergedClsPrefix}-dialog__icon`}
-            >
-              {{
-                default: () =>
-                  renderSlot($slots, 'icon', undefined, () => [
-                    this.icon ? render(this.icon) : iconMap[this.type]
-                  ])
-              }}
-            </NBaseIcon>
-          </div>
+          <div class={`${mergedClsPrefix}-dialog-icon-container`}>{icon}</div>
         ) : null}
-        <div class={`${mergedClsPrefix}-dialog__title`}>
-          {showIcon && mergedIconPlacement === 'left' ? (
-            <NBaseIcon
-              clsPrefix={mergedClsPrefix}
-              class={`${mergedClsPrefix}-dialog__icon`}
-            >
-              {{
-                default: () =>
-                  renderSlot($slots, 'icon', undefined, () => [
-                    this.icon ? render(this.icon) : iconMap[this.type]
-                  ])
-              }}
-            </NBaseIcon>
-          ) : null}
-          {renderSlot($slots, 'header', undefined, () => [render(title)])}
+        <div
+          class={[`${mergedClsPrefix}-dialog__title`, this.titleClass]}
+          style={this.titleStyle}
+        >
+          {showIcon && mergedIconPlacement === 'left' ? icon : null}
+          {resolveSlot(this.$slots.header, () => [render(title)])}
         </div>
-        <div class={`${mergedClsPrefix}-dialog__content`}>
-          {renderSlot($slots, 'default', undefined, () => [render(content)])}
+        <div
+          class={[
+            `${mergedClsPrefix}-dialog__content`,
+            actionNode ? '' : `${mergedClsPrefix}-dialog__content--last`,
+            this.contentClass
+          ]}
+          style={this.contentStyle}
+        >
+          {resolveSlot(this.$slots.default, () => [render(content)])}
         </div>
-        <div class={`${mergedClsPrefix}-dialog__action`}>
-          {renderSlot($slots, 'action', undefined, () => [
-            negativeText ? (
-              <NButton
-                theme={mergedTheme.peers.Button}
-                themeOverrides={mergedTheme.peerOverrides.Button}
-                ghost
-                size="small"
-                onClick={handleNegativeClick}
-              >
-                {{
-                  default: () => render(this.negativeText)
-                }}
-              </NButton>
-            ) : null,
-            <NButton
-              theme={mergedTheme.peers.Button}
-              themeOverrides={mergedTheme.peerOverrides.Button}
-              disabled={loading}
-              loading={loading}
-              size="small"
-              type={type === 'default' ? 'primary' : type}
-              onClick={handlePositiveClick}
-            >
-              {{
-                default: () => render(this.positiveText)
-              }}
-            </NButton>
-          ])}
-        </div>
+        {actionNode}
       </div>
     )
   }

@@ -1,10 +1,13 @@
-import { defineComponent, h, Fragment, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { NPopover, PopoverInst } from '../index'
 import { createId } from 'seemly'
+import { defineComponent, Fragment, h, nextTick } from 'vue'
+import { NPopover, type PopoverInst } from '../index'
 
-async function sleep (ms: number): Promise<void> {
-  return await new Promise((resolve) => {
+const popoverBodyHeader = '.n-popover__header'
+const popoverBodyFooter = '.n-popover__footer'
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => {
     setTimeout(resolve, ms)
   })
 }
@@ -21,7 +24,7 @@ describe('n-popover', () => {
 
   const TriggerComponent1 = defineComponent({
     name: 'TriggerComponent1',
-    render () {
+    render() {
       return <div>GoGoGo</div>
     }
   })
@@ -29,15 +32,14 @@ describe('n-popover', () => {
   ;(['hover', 'click'] as const).forEach((trigger) => {
     // test trigger node
     ;['text', 'div', 'Fragment', TriggerComponent1].forEach((type) => {
-      const classNameHash: string =
-        trigger + '-' + (typeof type === 'string' ? type : type.name)
+      const classNameHash: string = `${trigger}-${typeof type === 'string' ? type : type.name}`
       it(`trigger node ${classNameHash}`, async () => {
         // hover trigger, click trigger
         const triggerEvent = trigger === 'hover' ? 'mouseenter' : 'click'
         const hideTriggerEvent = trigger === 'hover' ? 'mouseleave' : 'click'
         // text node, element node
-        const triggerNode =
-          type === 'text' ? (
+        const triggerNode
+          = type === 'text' ? (
             'star kirby'
           ) : type === 'Fragment' ? (
             <>
@@ -64,8 +66,8 @@ describe('n-popover', () => {
             )
           }
         })
-        const triggerNodeWrapper =
-          type === 'text'
+        const triggerNodeWrapper
+          = type === 'text'
             ? wrapper.find('span')
             : wrapper.find(`.star-kirby-${classNameHash}-trigger`)
 
@@ -122,6 +124,28 @@ describe('n-popover', () => {
     expect(document.querySelector(`.${contentClass}`)).not.toEqual(null)
     await sleep(150)
     expect(document.querySelector(`.${contentClass}`)).toEqual(null)
+    wrapper.unmount()
+  })
+
+  it('header & footer slots', () => {
+    const wrapper = mount(NPopover, {
+      attachTo: document.body,
+      props: {
+        show: true
+      },
+      slots: {
+        trigger: () => <div>click</div>,
+        header: () => <div>I am title</div>,
+        default: () => <div>star kirby</div>,
+        footer: () => <div>I am footer</div>
+      }
+    })
+    expect(document.querySelector(popoverBodyHeader)?.textContent).toEqual(
+      'I am title'
+    )
+    expect(document.querySelector(popoverBodyFooter)?.textContent).toEqual(
+      'I am footer'
+    )
     wrapper.unmount()
   })
 })

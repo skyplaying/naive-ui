@@ -1,15 +1,14 @@
 import {
-  h,
-  defineComponent,
-  TransitionGroup,
   computed,
+  defineComponent,
+  h,
   ref,
-  watch,
   toRef,
-  Ref
+  TransitionGroup,
+  watch
 } from 'vue'
-import NFadeInExpandTransition from '../../fade-in-expand-transition'
 import { useStyle } from '../../../_mixins'
+import NFadeInExpandTransition from '../../fade-in-expand-transition'
 import SlotMachineNumber from './SlotMachineNumber'
 import style from './styles/index.cssr'
 
@@ -33,14 +32,16 @@ export default defineComponent({
       required: true
     }
   },
-  setup (props) {
-    useStyle('BaseSlotMachine', style, toRef(props, 'clsPrefix'))
+  setup(props) {
+    useStyle('-base-slot-machine', style, toRef(props, 'clsPrefix'))
     const oldValueRef = ref<number>()
     const newValueRef = ref<number>()
     const numbersRef = computed(() => {
-      if (typeof props.value === 'string') return []
-      if (props.value < 1) return [0]
-      const numbers = []
+      if (typeof props.value === 'string')
+        return []
+      if (props.value < 1)
+        return [0]
+      const numbers: number[] = []
       let value = props.value
       if (props.max !== undefined) {
         value = Math.min(props.max, value)
@@ -53,15 +54,17 @@ export default defineComponent({
       numbers.reverse()
       return numbers
     })
-    watch(toRef(props, 'value') as Ref<string | number>, (value, oldValue) => {
+    watch(toRef(props, 'value'), (value, oldValue) => {
       if (typeof value === 'string') {
         newValueRef.value = undefined
         oldValueRef.value = undefined
-      } else {
+      }
+      else {
         if (typeof oldValue === 'string') {
           newValueRef.value = value
           oldValueRef.value = undefined
-        } else {
+        }
+        else {
           newValueRef.value = value
           oldValueRef.value = oldValue
         }

@@ -1,8 +1,8 @@
-import {
-  useDialog as _useDialog,
+import { useDialog as _useDialog } from 'naive-ui'
+import type {
   DialogOptions,
   DialogReactive,
-  DialogApiInjection
+  DialogApi
 } from 'naive-ui'
 import { icons } from './icons'
 
@@ -10,7 +10,7 @@ export interface ExtendedApi {
   danger: (options: DialogOptions) => DialogReactive
 }
 
-export type TsDialogApi = DialogApiInjection & ExtendedApi
+export type TsDialogApi = DialogApi & ExtendedApi
 
 function useDialog (): TsDialogApi {
   const dialog = _useDialog()

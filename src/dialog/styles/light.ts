@@ -1,15 +1,17 @@
-import commonVars from './_common'
-import { buttonLight } from '../../button/styles'
-import { commonLight } from '../../_styles/common'
 import type { ThemeCommonVars } from '../../_styles/common'
 import { createTheme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
+import { buttonLight } from '../../button/styles'
+import commonVars from './_common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     textColor1,
     textColor2,
     modalColor,
-    closeColor,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
     closeColorHover,
     closeColorPressed,
     infoColor,
@@ -31,9 +33,12 @@ export const self = (vars: ThemeCommonVars) => {
     titleTextColor: textColor1,
     textColor: textColor2,
     color: modalColor,
-    closeColor: closeColor,
-    closeColorHover: closeColorHover,
-    closeColorPressed: closeColorPressed,
+    closeColorHover,
+    closeColorPressed,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
+    closeBorderRadius: borderRadius,
     iconColor: primaryColor,
     iconColorInfo: infoColor,
     iconColorSuccess: successColor,

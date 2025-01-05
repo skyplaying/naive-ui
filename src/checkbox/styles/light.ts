@@ -1,10 +1,10 @@
+import type { Theme } from '../../_mixins'
+import type { ThemeCommonVars } from '../../_styles/common'
 import { changeColor } from 'seemly'
 import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
 import commonVariables from './_common'
-import type { Theme } from '../../_mixins'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     baseColor,
     inputColorDisabled,
@@ -18,10 +18,12 @@ export const self = (vars: ThemeCommonVars) => {
     fontSizeSmall,
     fontSizeMedium,
     fontSizeLarge,
-    borderRadiusSmall
+    borderRadiusSmall,
+    lineHeight
   } = vars
   return {
     ...commonVariables,
+    labelLineHeight: lineHeight,
     fontSizeSmall,
     fontSizeMedium,
     fontSizeLarge,
@@ -43,7 +45,7 @@ export const self = (vars: ThemeCommonVars) => {
     borderFocus: `1px solid ${primaryColor}`,
     boxShadowFocus: `0 0 0 2px ${changeColor(primaryColor, { alpha: 0.3 })}`,
     textColor: textColor2,
-    textColorDisabled: textColorDisabled
+    textColorDisabled
   }
 }
 

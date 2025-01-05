@@ -1,14 +1,21 @@
 import {
-  h,
+  type PropType,
   defineComponent,
-  onBeforeMount,
+  h,
   onBeforeUnmount,
-  PropType
+  toRef,
+  watch
 } from 'vue'
 import { NConfigProvider, configProviderProps } from 'naive-ui'
 import { merge } from 'lodash-es'
+import type { CNode } from 'css-render'
 import { renderFilter, renderSorter } from './data-table'
-import { unconfigurableStyle, mountSvgDefs } from './unconfigurable-style-light'
+import { mountSvgDefs, unconfigurableStyle } from './unconfigurable-style-light'
+import {
+  mountSvgDefs as mountSvgDarkDefs,
+  unconfigurableStyle as unconfigurableDarkStyle
+} from './unconfigurable-style-dark'
+
 import { themeOverridesLight } from './theme-overrides-light'
 import { themeOverridesDark } from './theme-overrides-dark'
 import { icons as tusimpleIcons } from './icons'
@@ -41,22 +48,52 @@ export default defineComponent({
     },
     ...configProviderProps
   },
-  setup () {
-    onBeforeMount(() => {
+  setup(props) {
+    let currentUnconfigurableStyle: CNode | null = null
+    function mountLightTheme(): void {
       mountSvgDefs()
+      currentUnconfigurableStyle = unconfigurableStyle
       unconfigurableStyle.mount({
         id: 'naive-ui/tusimple-theme'
       })
-    })
+    }
+    function mountDarkTheme(): void {
+      mountSvgDarkDefs()
+      currentUnconfigurableStyle = unconfigurableDarkStyle
+      unconfigurableDarkStyle.mount({
+        id: 'naive-ui/tusimple-theme'
+      })
+    }
+    function unmountTheme(): void {
+      if (currentUnconfigurableStyle) {
+        currentUnconfigurableStyle.unmount()
+      }
+    }
+    watch(
+      toRef(props, 'themeName'),
+      (themeName) => {
+        if (themeName === 'light') {
+          unmountTheme()
+          mountLightTheme()
+        }
+        else {
+          unmountTheme()
+          mountDarkTheme()
+        }
+      },
+      {
+        immediate: true
+      }
+    )
     onBeforeUnmount(() => {
-      unconfigurableStyle.unmount()
+      unmountTheme()
     })
   },
-  render () {
+  render() {
     const { $props } = this
     const { themeOverrides, componentOptions, icons, themeName } = $props
-    const tusimpleThemeOverrides =
-      themeName === 'light' ? themeOverridesLight : themeOverridesDark
+    const tusimpleThemeOverrides
+      = themeName === 'light' ? themeOverridesLight : themeOverridesDark
     return (
       <NConfigProvider
         class={`ts-${themeName}-theme`}

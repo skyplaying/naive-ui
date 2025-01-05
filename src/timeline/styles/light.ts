@@ -1,9 +1,9 @@
-import sizeVariables from './_common'
-import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
 import type { Theme } from '../../_mixins'
+import type { ThemeCommonVars } from '../../_styles/common'
+import { commonLight } from '../../_styles/common'
+import sizeVariables from './_common'
 
-const self = (vars: ThemeCommonVars) => {
+function self(vars: ThemeCommonVars) {
   const {
     textColor3,
     infoColor,
@@ -25,6 +25,11 @@ const self = (vars: ThemeCommonVars) => {
     circleBorderError: `2px solid ${errorColor}`,
     circleBorderSuccess: `2px solid ${successColor}`,
     circleBorderWarning: `2px solid ${warningColor}`,
+    iconColor: textColor3,
+    iconColorInfo: infoColor,
+    iconColorError: errorColor,
+    iconColorSuccess: successColor,
+    iconColorWarning: warningColor,
     titleTextColor: textColor1,
     contentTextColor: textColor2,
     metaTextColor: textColor3,

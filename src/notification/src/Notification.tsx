@@ -1,29 +1,30 @@
-import {
-  h,
-  defineComponent,
-  computed,
-  inject,
-  PropType,
-  VNodeChild,
-  CSSProperties
-} from 'vue'
 import { getPadding } from 'seemly'
-import { createKey, keysOf, render } from '../../_utils'
-import { NBaseIcon, NBaseClose } from '../../_internal'
 import {
+  computed,
+  type CSSProperties,
+  defineComponent,
+  h,
+  inject,
+  type PropType,
+  type VNodeChild
+} from 'vue'
+import { NBaseClose, NBaseIcon } from '../../_internal'
+import {
+  ErrorIcon,
   InfoIcon,
   SuccessIcon,
-  WarningIcon,
-  ErrorIcon
+  WarningIcon
 } from '../../_internal/icons'
-import { notificationProviderInjectionKey } from './NotificationProvider'
+import { useConfig, useRtl, useThemeClass } from '../../_mixins'
+import { createKey, keysOf, render } from '../../_utils'
+import { notificationProviderInjectionKey } from './context'
 
-const iconMap = {
-  info: <InfoIcon />,
-  success: <SuccessIcon />,
-  warning: <WarningIcon />,
-  error: <ErrorIcon />,
-  default: null
+const iconRenderMap = {
+  info: () => <InfoIcon />,
+  success: () => <SuccessIcon />,
+  warning: () => <WarningIcon />,
+  error: () => <ErrorIcon />,
+  default: () => null
 }
 
 export const notificationProps = {
@@ -33,13 +34,11 @@ export const notificationProps = {
   },
   type: {
     type: String as PropType<
-    'info' | 'success' | 'warning' | 'error' | 'default'
+      'info' | 'success' | 'warning' | 'error' | 'default'
     >,
     default: 'default'
   },
   avatar: Function as PropType<() => VNodeChild>,
-  // BUG
-  // Wired Case, can't be set to [String, Function] as PropType<string | (() => VNodeChild)>,
   title: [String, Function] as PropType<string | (() => VNodeChild)>,
   description: [String, Function] as PropType<string | (() => VNodeChild)>,
   content: [String, Function] as PropType<string | (() => VNodeChild)>,
@@ -48,151 +47,193 @@ export const notificationProps = {
   onClose: {
     type: Function as PropType<() => void>,
     required: true
-  }
+  },
+  keepAliveOnHover: Boolean,
+  onMouseenter: Function as PropType<(e: MouseEvent) => void>,
+  onMouseleave: Function as PropType<(e: MouseEvent) => void>
 } as const
 
 export const notificationPropKeys = keysOf(notificationProps)
 
-export default defineComponent({
+export const Notification = defineComponent({
   name: 'Notification',
   props: notificationProps,
-  setup (props) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const { mergedClsPrefixRef, mergedThemeRef } = inject(
-      notificationProviderInjectionKey
-    )!
+  setup(props) {
+    const {
+      mergedClsPrefixRef,
+      mergedThemeRef,
+      props: providerProps
+    } = inject(notificationProviderInjectionKey)!
+    const { inlineThemeDisabled, mergedRtlRef } = useConfig()
+    const rtlEnabledRef = useRtl(
+      'Notification',
+      mergedRtlRef,
+      mergedClsPrefixRef
+    )
+    const cssVarsRef = computed(() => {
+      const { type } = props
+      const {
+        self: {
+          color,
+          textColor,
+          closeIconColor,
+          closeIconColorHover,
+          closeIconColorPressed,
+          headerTextColor,
+          descriptionTextColor,
+          actionTextColor,
+          borderRadius,
+          headerFontWeight,
+          boxShadow,
+          lineHeight,
+          fontSize,
+          closeMargin,
+          closeSize,
+          width,
+          padding,
+          closeIconSize,
+          closeBorderRadius,
+          closeColorHover,
+          closeColorPressed,
+          titleFontSize,
+          metaFontSize,
+          descriptionFontSize,
+          [createKey('iconColor', type)]: iconColor
+        },
+        common: { cubicBezierEaseOut, cubicBezierEaseIn, cubicBezierEaseInOut }
+      } = mergedThemeRef.value
+      const { left, right, top, bottom } = getPadding(padding)
+      return {
+        '--n-color': color,
+        '--n-font-size': fontSize,
+        '--n-text-color': textColor,
+        '--n-description-text-color': descriptionTextColor,
+        '--n-action-text-color': actionTextColor,
+        '--n-title-text-color': headerTextColor,
+        '--n-title-font-weight': headerFontWeight,
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-bezier-ease-out': cubicBezierEaseOut,
+        '--n-bezier-ease-in': cubicBezierEaseIn,
+        '--n-border-radius': borderRadius,
+        '--n-box-shadow': boxShadow,
+        '--n-close-border-radius': closeBorderRadius,
+        '--n-close-color-hover': closeColorHover,
+        '--n-close-color-pressed': closeColorPressed,
+        '--n-close-icon-color': closeIconColor,
+        '--n-close-icon-color-hover': closeIconColorHover,
+        '--n-close-icon-color-pressed': closeIconColorPressed,
+        '--n-line-height': lineHeight,
+        '--n-icon-color': iconColor,
+        '--n-close-margin': closeMargin,
+        '--n-close-size': closeSize,
+        '--n-close-icon-size': closeIconSize,
+        '--n-width': width,
+        '--n-padding-left': left,
+        '--n-padding-right': right,
+        '--n-padding-top': top,
+        '--n-padding-bottom': bottom,
+        '--n-title-font-size': titleFontSize,
+        '--n-meta-font-size': metaFontSize,
+        '--n-description-font-size': descriptionFontSize
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'notification',
+          computed(() => props.type[0]),
+          cssVarsRef,
+          providerProps
+        )
+      : undefined
     return {
       mergedClsPrefix: mergedClsPrefixRef,
       showAvatar: computed(() => {
         return props.avatar || props.type !== 'default'
       }),
-      handleCloseClick () {
+      handleCloseClick() {
         props.onClose()
       },
-      cssVars: computed(() => {
-        const { type } = props
-        const {
-          self: {
-            color,
-            textColor,
-            closeColor,
-            closeColorHover,
-            closeColorPressed,
-            headerTextColor,
-            descriptionTextColor,
-            actionTextColor,
-            borderRadius,
-            headerFontWeight,
-            boxShadow,
-            lineHeight,
-            fontSize,
-            closeMargin,
-            closeSize,
-            width,
-            padding,
-            [createKey('iconColor', type)]: iconColor
-          },
-          common: {
-            cubicBezierEaseOut,
-            cubicBezierEaseIn,
-            cubicBezierEaseInOut
-          }
-        } = mergedThemeRef.value
-        const { left, right, top, bottom } = getPadding(padding)
-        return {
-          '--color': color,
-          '--font-size': fontSize,
-          '--text-color': textColor,
-          '--description-text-color': descriptionTextColor,
-          '--action-text-color': actionTextColor,
-          '--title-text-color': headerTextColor,
-          '--title-font-weight': headerFontWeight,
-          '--bezier': cubicBezierEaseInOut,
-          '--bezier-ease-out': cubicBezierEaseOut,
-          '--bezier-ease-in': cubicBezierEaseIn,
-          '--border-radius': borderRadius,
-          '--box-shadow': boxShadow,
-          '--close-color': closeColor,
-          '--close-color-hover': closeColorHover,
-          '--close-color-pressed': closeColorPressed,
-          '--line-height': lineHeight,
-          '--icon-color': iconColor,
-          '--close-margin': closeMargin,
-          '--close-size': closeSize,
-          '--width': width,
-          '--padding-left': left,
-          '--padding-right': right,
-          '--padding-top': top,
-          '--padding-bottom': bottom
-        }
-      })
+      rtlEnabled: rtlEnabledRef,
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     const { mergedClsPrefix } = this
+    this.onRender?.()
     return (
       <div
-        class={[
-          `${mergedClsPrefix}-notification`,
-          {
-            [`${mergedClsPrefix}-notification--closable`]: this.closable,
-            [`${mergedClsPrefix}-notification--show-avatar`]: this.showAvatar
-          }
-        ]}
+        class={[`${mergedClsPrefix}-notification-wrapper`, this.themeClass]}
+        onMouseenter={this.onMouseenter}
+        onMouseleave={this.onMouseleave}
         style={this.cssVars as CSSProperties}
       >
-        {this.showAvatar ? (
-          <div class={`${mergedClsPrefix}-notification__avatar`}>
-            {this.avatar ? (
-              render(this.avatar)
-            ) : this.type !== 'default' ? (
-              <NBaseIcon clsPrefix={mergedClsPrefix}>
-                {{ default: () => iconMap[this.type] }}
-              </NBaseIcon>
+        <div
+          class={[
+            `${mergedClsPrefix}-notification`,
+            this.rtlEnabled && `${mergedClsPrefix}-notification--rtl`,
+            this.themeClass,
+            {
+              [`${mergedClsPrefix}-notification--closable`]: this.closable,
+              [`${mergedClsPrefix}-notification--show-avatar`]: this.showAvatar
+            }
+          ]}
+          style={this.cssVars as CSSProperties}
+        >
+          {this.showAvatar ? (
+            <div class={`${mergedClsPrefix}-notification__avatar`}>
+              {this.avatar ? (
+                render(this.avatar)
+              ) : this.type !== 'default' ? (
+                <NBaseIcon clsPrefix={mergedClsPrefix}>
+                  {{ default: () => iconRenderMap[this.type]() }}
+                </NBaseIcon>
+              ) : null}
+            </div>
+          ) : null}
+          {this.closable ? (
+            <NBaseClose
+              clsPrefix={mergedClsPrefix}
+              class={`${mergedClsPrefix}-notification__close`}
+              onClick={this.handleCloseClick}
+            />
+          ) : null}
+          <div ref="bodyRef" class={`${mergedClsPrefix}-notification-main`}>
+            {this.title ? (
+              <div class={`${mergedClsPrefix}-notification-main__header`}>
+                {render(this.title)}
+              </div>
+            ) : null}
+            {this.description ? (
+              <div class={`${mergedClsPrefix}-notification-main__description`}>
+                {render(this.description)}
+              </div>
+            ) : null}
+            {this.content ? (
+              <pre class={`${mergedClsPrefix}-notification-main__content`}>
+                {render(this.content)}
+              </pre>
+            ) : null}
+            {this.meta || this.action ? (
+              <div class={`${mergedClsPrefix}-notification-main-footer`}>
+                {this.meta ? (
+                  <div
+                    class={`${mergedClsPrefix}-notification-main-footer__meta`}
+                  >
+                    {render(this.meta)}
+                  </div>
+                ) : null}
+                {this.action ? (
+                  <div
+                    class={`${mergedClsPrefix}-notification-main-footer__action`}
+                  >
+                    {render(this.action)}
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </div>
-        ) : null}
-        {this.closable ? (
-          <NBaseClose
-            clsPrefix={mergedClsPrefix}
-            class={`${mergedClsPrefix}-notification__close`}
-            onClick={this.handleCloseClick}
-          />
-        ) : null}
-        <div ref="bodyRef" class={`${mergedClsPrefix}-notification-main`}>
-          {this.title ? (
-            <div class={`${mergedClsPrefix}-notification-main__header`}>
-              {render(this.title)}
-            </div>
-          ) : null}
-          {this.description ? (
-            <div class={`${mergedClsPrefix}-notification-main__description`}>
-              {render(this.description)}
-            </div>
-          ) : null}
-          {this.content ? (
-            <pre class={`${mergedClsPrefix}-notification-main__content`}>
-              {render(this.content)}
-            </pre>
-          ) : null}
-          {this.meta || this.action ? (
-            <div class={`${mergedClsPrefix}-notification-main-footer`}>
-              {this.meta ? (
-                <div
-                  class={`${mergedClsPrefix}-notification-main-footer__meta`}
-                >
-                  {render(this.meta)}
-                </div>
-              ) : null}
-              {this.action ? (
-                <div
-                  class={`${mergedClsPrefix}-notification-main-footer__action`}
-                >
-                  {render(this.action)}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
     )

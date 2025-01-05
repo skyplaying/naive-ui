@@ -1,63 +1,61 @@
-import {
-  defineComponent,
-  h,
-  computed,
-  ref,
-  toRef,
-  PropType,
-  watch,
-  provide,
-  CSSProperties,
-  InjectionKey,
-  Ref,
-  mergeProps
-} from 'vue'
-import { createTreeMate, Key, TreeMateOptions, TreeNode } from 'treemate'
-import { useMergedState, useKeyboard, useMemo } from 'vooks'
-import { FollowerPlacement } from 'vueuc'
-import type { InternalRenderBody } from '../../popover/src/interface'
-import { popoverBaseProps } from '../../popover/src/Popover'
-import type { PopoverInternalProps } from '../../popover/src/Popover'
-import { useConfig, useTheme } from '../../_mixins'
+import type { FollowerPlacement } from 'vueuc'
 import type { ThemeProps } from '../../_mixins'
-import { NPopover } from '../../popover'
-import {
-  keep,
-  call,
-  createKey,
-  MaybeArray,
-  ExtractPublicPropTypes
-} from '../../_utils'
-import { dropdownLight } from '../styles'
+import type { InternalRenderBody } from '../../popover/src/interface'
+import type { PopoverInternalProps } from '../../popover/src/Popover'
 import type { DropdownTheme } from '../styles'
-import NDropdownMenu from './DropdownMenu'
-import style from './styles/index.cssr'
-import {
+import type {
   DropdownGroupOption,
   DropdownIgnoredOption,
-  DropdownOption,
+  DropdownMenuProps,
   DropdownMixedOption,
+  DropdownOption,
+  DropdownRenderOption,
+  NodeProps,
   OnUpdateValue,
-  OnUpdateValueImpl
+  OnUpdateValueImpl,
+  RenderIcon,
+  RenderIconImpl,
+  RenderLabel,
+  RenderLabelImpl,
+  RenderOption,
+  RenderOptionImpl
 } from './interface'
-
-const treemateOptions: TreeMateOptions<
-DropdownOption,
-DropdownGroupOption,
-DropdownIgnoredOption
-> = {
-  getKey (node) {
-    return node.key
-  },
-  getDisabled (node) {
-    return node.disabled === true
-  },
-  getIgnored (node) {
-    return node.type === 'divider'
-  }
-}
+import { createTreeMate, type Key, type TreeNode } from 'treemate'
+import { useKeyboard, useMemo, useMergedState } from 'vooks'
+import {
+  computed,
+  defineComponent,
+  h,
+  mergeProps,
+  type PropType,
+  provide,
+  type Ref,
+  ref,
+  toRef,
+  watch
+} from 'vue'
+import { useConfig, useTheme, useThemeClass } from '../../_mixins'
+import {
+  call,
+  createKey,
+  createRefSetter,
+  type ExtractPublicPropTypes,
+  keep,
+  type MaybeArray
+} from '../../_utils'
+import { NPopover } from '../../popover'
+import { popoverBaseProps } from '../../popover/src/Popover'
+import { dropdownLight } from '../styles'
+import { dropdownInjectionKey } from './context'
+import NDropdownMenu from './DropdownMenu'
+import style from './styles/index.cssr'
 
 export interface DropdownInjection {
+  renderLabelRef: Ref<RenderLabelImpl | undefined>
+  renderIconRef: Ref<RenderIconImpl | undefined>
+  renderOptionRef: Ref<RenderOptionImpl | undefined>
+  menuPropsRef: Ref<DropdownMenuProps | undefined>
+  nodePropsRef: Ref<NodeProps | undefined>
   hoverKeyRef: Ref<Key | null>
   keyboardKeyRef: Ref<Key | null>
   lastToggledSubmenuKeyRef: Ref<Key | null>
@@ -65,12 +63,11 @@ export interface DropdownInjection {
   activeKeyPathRef: Ref<Key[]>
   animatedRef: Ref<boolean>
   mergedShowRef: Ref<boolean>
+  labelFieldRef: Ref<string>
+  childrenFieldRef: Ref<string>
   doSelect: OnUpdateValueImpl
   doUpdateShow: (value: boolean) => void
 }
-
-export const dropdownInjectionKey: InjectionKey<DropdownInjection> =
-  Symbol('dropdown')
 
 const dropdownBaseProps = {
   animated: {
@@ -95,15 +92,33 @@ const dropdownBaseProps = {
     type: Array as PropType<DropdownMixedOption[]>,
     default: () => []
   },
+  menuProps: Function as PropType<DropdownMenuProps>,
+  showArrow: Boolean,
+  renderLabel: Function as PropType<RenderLabel>,
+  renderIcon: Function as PropType<RenderIcon>,
+  renderOption: Function as PropType<RenderOption>,
+  nodeProps: Function as PropType<NodeProps>,
+  labelField: {
+    type: String,
+    default: 'label'
+  },
+  keyField: {
+    type: String,
+    default: 'key'
+  },
+  childrenField: {
+    type: String,
+    default: 'children'
+  },
   // for menu, not documented
   value: [String, Number] as PropType<Key | null>
 } as const
 
 const popoverPropKeys = Object.keys(popoverBaseProps) as Array<
-keyof typeof popoverBaseProps
+  keyof typeof popoverBaseProps
 >
 
-const dropdownProps = {
+export const dropdownProps = {
   ...popoverBaseProps,
   ...dropdownBaseProps,
   ...(useTheme.props as ThemeProps<DropdownTheme>)
@@ -115,18 +130,32 @@ export default defineComponent({
   name: 'Dropdown',
   inheritAttrs: false,
   props: dropdownProps,
-  setup (props) {
+  setup(props) {
     const uncontrolledShowRef = ref(false)
     const mergedShowRef = useMergedState(
       toRef(props, 'show'),
       uncontrolledShowRef
     )
     const treemateRef = computed(() => {
+      const { keyField, childrenField } = props
       return createTreeMate<
-      DropdownOption,
-      DropdownGroupOption,
-      DropdownIgnoredOption
-      >(props.options, treemateOptions)
+        DropdownOption | DropdownRenderOption,
+        DropdownGroupOption,
+        DropdownIgnoredOption
+      >(props.options, {
+        getKey(node) {
+          return node[keyField] as any
+        },
+        getDisabled(node) {
+          return node.disabled === true
+        },
+        getIgnored(node) {
+          return node.type === 'divider' || node.type === 'render'
+        },
+        getChildren(node) {
+          return node[childrenField] as any
+        }
+      })
     })
     const tmNodesRef = computed(() => {
       return treemateRef.value.treeNodes
@@ -137,10 +166,10 @@ export default defineComponent({
     const lastToggledSubmenuKeyRef = ref<Key | null>(null)
     const pendingKeyRef = computed(() => {
       return (
-        hoverKeyRef.value ??
-        keyboardKeyRef.value ??
-        lastToggledSubmenuKeyRef.value ??
-        null
+        hoverKeyRef.value
+        ?? keyboardKeyRef.value
+        ?? lastToggledSubmenuKeyRef.value
+        ?? null
       )
     })
 
@@ -161,34 +190,35 @@ export default defineComponent({
         keydown: {
           ArrowUp: {
             prevent: true,
-            handler: handleKeyDownUp
+            handler: handleKeydownUp
           },
           ArrowRight: {
             prevent: true,
-            handler: handleKeyDownRight
+            handler: handleKeydownRight
           },
           ArrowDown: {
             prevent: true,
-            handler: handleKeyDownDown
+            handler: handleKeydownDown
           },
           ArrowLeft: {
             prevent: true,
-            handler: handleKeyDownLeft
+            handler: handleKeydownLeft
           },
-          Escape: handleKeyDownEsc
-        },
-        keyup: {
-          Enter: handleKeyUpEnter
+          Enter: {
+            prevent: true,
+            handler: handleKeydownEnter
+          },
+          Escape: handleKeydownEsc
         }
       },
       keyboardEnabledRef
     )
 
-    const { mergedClsPrefixRef } = useConfig(props)
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
 
     const themeRef = useTheme(
       'Dropdown',
-      'Dropdown',
+      '-dropdown',
       style,
       dropdownLight,
       props,
@@ -196,75 +226,96 @@ export default defineComponent({
     )
 
     provide(dropdownInjectionKey, {
-      hoverKeyRef: hoverKeyRef,
-      keyboardKeyRef: keyboardKeyRef,
-      lastToggledSubmenuKeyRef: lastToggledSubmenuKeyRef,
-      pendingKeyPathRef: pendingKeyPathRef,
-      activeKeyPathRef: activeKeyPathRef,
+      labelFieldRef: toRef(props, 'labelField'),
+      childrenFieldRef: toRef(props, 'childrenField'),
+      renderLabelRef: toRef(props, 'renderLabel') as Ref<
+        RenderLabelImpl | undefined
+      >,
+      renderIconRef: toRef(props, 'renderIcon') as Ref<
+        RenderIconImpl | undefined
+      >,
+      hoverKeyRef,
+      keyboardKeyRef,
+      lastToggledSubmenuKeyRef,
+      pendingKeyPathRef,
+      activeKeyPathRef,
       animatedRef: toRef(props, 'animated'),
-      mergedShowRef: mergedShowRef,
+      mergedShowRef,
+      nodePropsRef: toRef(props, 'nodeProps'),
+      renderOptionRef: toRef(props, 'renderOption') as Ref<
+        RenderOptionImpl | undefined
+      >,
+      menuPropsRef: toRef(props, 'menuProps'),
       doSelect,
       doUpdateShow
     })
     // watch
     watch(mergedShowRef, (value) => {
-      if (!value) clearPendingState()
+      if (!props.animated && !value) {
+        clearPendingState()
+      }
     })
     // methods
-    function doSelect (key: Key, node: DropdownOption): void {
+    function doSelect(key: Key, node: DropdownOption): void {
       const { onSelect } = props
-      if (onSelect) call(onSelect as OnUpdateValueImpl, key, node)
+      if (onSelect)
+        call(onSelect as OnUpdateValueImpl, key, node)
     }
-    function doUpdateShow (value: boolean): void {
-      const { 'onUpdate:show': onUpdateShow } = props
-      if (onUpdateShow) call(onUpdateShow, value)
+    function doUpdateShow(value: boolean): void {
+      const { 'onUpdate:show': _onUpdateShow, onUpdateShow } = props
+      if (_onUpdateShow)
+        call(_onUpdateShow, value)
+      if (onUpdateShow)
+        call(onUpdateShow, value)
       uncontrolledShowRef.value = value
     }
-    function clearPendingState (): void {
+    function clearPendingState(): void {
       hoverKeyRef.value = null
       keyboardKeyRef.value = null
       lastToggledSubmenuKeyRef.value = null
     }
-    function handleKeyDownEsc (): void {
+    function handleKeydownEsc(): void {
       doUpdateShow(false)
     }
-    function handleKeyDownLeft (): void {
-      handleKeyDown('left')
+    function handleKeydownLeft(): void {
+      handleKeydown('left')
     }
-    function handleKeyDownRight (): void {
-      handleKeyDown('right')
+    function handleKeydownRight(): void {
+      handleKeydown('right')
     }
-    function handleKeyDownUp (): void {
-      handleKeyDown('up')
+    function handleKeydownUp(): void {
+      handleKeydown('up')
     }
-    function handleKeyDownDown (): void {
-      handleKeyDown('down')
+    function handleKeydownDown(): void {
+      handleKeydown('down')
     }
-    function handleKeyUpEnter (): void {
+    function handleKeydownEnter(): void {
       const pendingNode = getPendingNode()
-      if (pendingNode?.isLeaf) {
+      if (pendingNode?.isLeaf && mergedShowRef.value) {
         doSelect(pendingNode.key, pendingNode.rawNode)
         doUpdateShow(false)
       }
     }
-    function getPendingNode (): TreeNode<DropdownOption> | null {
+    function getPendingNode(): TreeNode<DropdownOption> | null {
       const { value: treeMate } = treemateRef
       const { value: pendingKey } = pendingKeyRef
-      if (!treeMate || pendingKey === null) return null
+      if (!treeMate || pendingKey === null)
+        return null
       return treeMate.getNode(pendingKey) ?? null
     }
-    function handleKeyDown (direction: 'up' | 'right' | 'down' | 'left'): void {
+    function handleKeydown(direction: 'up' | 'right' | 'down' | 'left'): void {
       const { value: pendingKey } = pendingKeyRef
       const {
         value: { getFirstAvailableNode }
       } = treemateRef
-      let nextKeyboardKey = null
+      let nextKeyboardKey: Key | null = null
       if (pendingKey === null) {
         const firstNode = getFirstAvailableNode()
         if (firstNode !== null) {
           nextKeyboardKey = firstNode.key
         }
-      } else {
+      }
+      else {
         const currentNode = getPendingNode()
         if (currentNode) {
           let nextNode
@@ -282,7 +333,8 @@ export default defineComponent({
               nextNode = currentNode.getParent()
               break
           }
-          if (nextNode) nextKeyboardKey = nextNode.key
+          if (nextNode)
+            nextKeyboardKey = nextNode.key
         }
       }
       if (nextKeyboardKey !== null) {
@@ -290,6 +342,77 @@ export default defineComponent({
         keyboardKeyRef.value = nextKeyboardKey
       }
     }
+    const cssVarsRef = computed(() => {
+      const { size, inverted } = props
+      const {
+        common: { cubicBezierEaseInOut },
+        self
+      } = themeRef.value
+      const {
+        padding,
+        dividerColor,
+        borderRadius,
+        optionOpacityDisabled,
+        [createKey('optionIconSuffixWidth', size)]: optionIconSuffixWidth,
+        [createKey('optionSuffixWidth', size)]: optionSuffixWidth,
+        [createKey('optionIconPrefixWidth', size)]: optionIconPrefixWidth,
+        [createKey('optionPrefixWidth', size)]: optionPrefixWidth,
+        [createKey('fontSize', size)]: fontSize,
+        [createKey('optionHeight', size)]: optionHeight,
+        [createKey('optionIconSize', size)]: optionIconSize
+      } = self
+      const vars: any = {
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-font-size': fontSize,
+        '--n-padding': padding,
+        '--n-border-radius': borderRadius,
+        '--n-option-height': optionHeight,
+        '--n-option-prefix-width': optionPrefixWidth,
+        '--n-option-icon-prefix-width': optionIconPrefixWidth,
+        '--n-option-suffix-width': optionSuffixWidth,
+        '--n-option-icon-suffix-width': optionIconSuffixWidth,
+        '--n-option-icon-size': optionIconSize,
+        '--n-divider-color': dividerColor,
+        '--n-option-opacity-disabled': optionOpacityDisabled
+      }
+      // writing like this is the fastest method
+      if (inverted) {
+        vars['--n-color'] = self.colorInverted
+        vars['--n-option-color-hover'] = self.optionColorHoverInverted
+        vars['--n-option-color-active'] = self.optionColorActiveInverted
+        vars['--n-option-text-color'] = self.optionTextColorInverted
+        vars['--n-option-text-color-hover'] = self.optionTextColorHoverInverted
+        vars['--n-option-text-color-active']
+          = self.optionTextColorActiveInverted
+        vars['--n-option-text-color-child-active']
+          = self.optionTextColorChildActiveInverted
+        vars['--n-prefix-color'] = self.prefixColorInverted
+        vars['--n-suffix-color'] = self.suffixColorInverted
+        vars['--n-group-header-text-color'] = self.groupHeaderTextColorInverted
+      }
+      else {
+        vars['--n-color'] = self.color
+        vars['--n-option-color-hover'] = self.optionColorHover
+        vars['--n-option-color-active'] = self.optionColorActive
+        vars['--n-option-text-color'] = self.optionTextColor
+        vars['--n-option-text-color-hover'] = self.optionTextColorHover
+        vars['--n-option-text-color-active'] = self.optionTextColorActive
+        vars['--n-option-text-color-child-active']
+          = self.optionTextColorChildActive
+        vars['--n-prefix-color'] = self.prefixColor
+        vars['--n-suffix-color'] = self.suffixColor
+        vars['--n-group-header-text-color'] = self.groupHeaderTextColor
+      }
+      return vars
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'dropdown',
+          computed(() => `${props.size[0]}${props.inverted ? 'i' : ''}`),
+          cssVarsRef,
+          props
+        )
+      : undefined
     return {
       mergedClsPrefix: mergedClsPrefixRef,
       mergedTheme: themeRef,
@@ -298,72 +421,18 @@ export default defineComponent({
       // show
       mergedShow: mergedShowRef,
       // methods
+      handleAfterLeave: () => {
+        if (!props.animated)
+          return
+        clearPendingState()
+      },
       doUpdateShow,
-      cssVars: computed(() => {
-        const { size, inverted } = props
-        const {
-          common: { cubicBezierEaseInOut },
-          self
-        } = themeRef.value
-        const {
-          padding,
-          dividerColor,
-          borderRadius,
-          optionOpacityDisabled,
-          [createKey('optionIconSuffixWidth', size)]: optionIconSuffixWidth,
-          [createKey('optionSuffixWidth', size)]: optionSuffixWidth,
-          [createKey('optionIconPrefixWidth', size)]: optionIconPrefixWidth,
-          [createKey('optionPrefixWidth', size)]: optionPrefixWidth,
-          [createKey('fontSize', size)]: fontSize,
-          [createKey('optionHeight', size)]: optionHeight,
-          [createKey('optionIconSize', size)]: optionIconSize
-        } = self
-        const vars: any = {
-          '--bezier': cubicBezierEaseInOut,
-          '--font-size': fontSize,
-          '--padding': padding,
-          '--border-radius': borderRadius,
-          '--option-height': optionHeight,
-          '--option-prefix-width': optionPrefixWidth,
-          '--option-icon-prefix-width': optionIconPrefixWidth,
-          '--option-suffix-width': optionSuffixWidth,
-          '--option-icon-suffix-width': optionIconSuffixWidth,
-          '--option-icon-size': optionIconSize,
-          '--divider-color': dividerColor,
-          '--option-opacity-disabled': optionOpacityDisabled
-        }
-        // writing like this is the fastest method
-        if (inverted) {
-          vars['--color'] = self.colorInverted
-          vars['--option-color-hover'] = self.optionColorHoverInverted
-          vars['--option-color-active'] = self.optionColorActiveInverted
-          vars['--option-text-color'] = self.optionTextColorInverted
-          vars['--option-text-color-hover'] = self.optionTextColorHoverInverted
-          vars['--option-text-color-active'] =
-            self.optionTextColorActiveInverted
-          vars['--option-text-color-child-active'] =
-            self.optionTextColorChildActiveInverted
-          vars['--prefix-color'] = self.prefixColorInverted
-          vars['--suffix-color'] = self.suffixColorInverted
-          vars['--group-header-text-color'] = self.groupHeaderTextColorInverted
-        } else {
-          vars['--color'] = self.color
-          vars['--option-color-hover'] = self.optionColorHover
-          vars['--option-color-active'] = self.optionColorActive
-          vars['--option-text-color'] = self.optionTextColor
-          vars['--option-text-color-hover'] = self.optionTextColorHover
-          vars['--option-text-color-active'] = self.optionTextColorActive
-          vars['--option-text-color-child-active'] =
-            self.optionTextColorChildActive
-          vars['--prefix-color'] = self.prefixColor
-          vars['--suffix-color'] = self.suffixColor
-          vars['--group-header-text-color'] = self.groupHeaderTextColor
-        }
-        return vars
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     const renderPopoverBody: InternalRenderBody = (
       className,
       ref,
@@ -371,19 +440,32 @@ export default defineComponent({
       onMouseenter,
       onMouseleave
     ) => {
-      const { mergedClsPrefix } = this
+      const { mergedClsPrefix, menuProps } = this
+      this.onRender?.()
+      const menuNodeProps
+        = menuProps?.(
+          undefined,
+          this.tmNodes.map(v => v.rawNode)
+        ) || {}
       const dropdownProps = {
-        ref,
-        class: [className, `${mergedClsPrefix}-dropdown`],
+        ref: createRefSetter(ref),
+        class: [className, `${mergedClsPrefix}-dropdown`, this.themeClass],
         clsPrefix: mergedClsPrefix,
         tmNodes: this.tmNodes,
-        style: [style, this.cssVars as CSSProperties],
+        style: [...style, this.cssVars],
+        showArrow: this.showArrow,
+        arrowStyle: this.arrowStyle,
+        scrollable: this.scrollable,
         onMouseenter,
         onMouseleave
       }
       return h(
         NDropdownMenu,
-        mergeProps(this.$attrs, dropdownProps) as typeof dropdownProps
+        mergeProps(
+          this.$attrs,
+          dropdownProps,
+          menuNodeProps
+        ) as typeof dropdownProps
       )
     }
     const { mergedTheme } = this
@@ -391,14 +473,15 @@ export default defineComponent({
       show: this.mergedShow,
       theme: mergedTheme.peers.Popover,
       themeOverrides: mergedTheme.peerOverrides.Popover,
+      internalOnAfterLeave: this.handleAfterLeave,
       internalRenderBody: renderPopoverBody,
-      onUpdateShow: this.doUpdateShow
+      onUpdateShow: this.doUpdateShow,
+      'onUpdate:show': undefined
     }
     return (
       <NPopover {...keep(this.$props, popoverPropKeys)} {...popoverProps}>
         {{
-          trigger: this.$slots.default,
-          _: 1
+          trigger: () => this.$slots.default?.()
         }}
       </NPopover>
     )

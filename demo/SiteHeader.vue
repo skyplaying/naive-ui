@@ -1,106 +1,30 @@
-<template>
-  <n-layout-header bordered class="nav" :style="style">
-    <n-text tag="div" class="ui-logo" :depth="1" @click="handleLogoClick">
-      <img src="./assets/images/naivelogo.svg" />
-      <span v-if="!isMobile">Naive UI</span>
-    </n-text>
-    <div :style="!isMobile ? 'display: flex; align-items: center;' : ''">
-      <div class="nav-menu" v-if="!(isMobile || isTablet)">
-        <n-menu
-          mode="horizontal"
-          :value="menuValue"
-          :options="menuOptions"
-          :render-label="renderMenuLabel"
-        />
-      </div>
-      <n-auto-complete
-        v-model:value="searchPattern"
-        :style="!isMobile ? 'width: 216px; margin-left: 24px' : undefined"
-        :placeholder="t('searchPlaceholder')"
-        :options="searchOptions"
-        clear-after-select
-        blur-after-select
-        @select="handleSearch"
-      />
-    </div>
-    <n-popover
-      v-if="isMobile || isTablet"
-      style="padding: 0; width: 288px"
-      placement="bottom-end"
-      display-directive="show"
-      trigger="click"
-      ref="mobilePopoverRef"
-    >
-      <template #trigger>
-        <n-icon size="20" style="margin-left: 12px"><menu-outline /></n-icon>
-      </template>
-      <div style="overflow: auto; max-height: 79vh">
-        <n-menu
-          :value="mobileMenuValue"
-          :options="mobileMenuOptions"
-          :indent="18"
-          @update:value="handleUpdateMobileMenu"
-          :render-label="renderMenuLabel"
-        />
-      </div>
-    </n-popover>
-    <div class="nav-end" v-else>
-      <n-button text class="nav-picker" @click="handleLocaleUpdate">
-        {{ localeLabelMap[locale] }}
-      </n-button>
-      <n-button text class="nav-picker" @click="handleThemeUpdate">
-        {{ themeLabelMap[theme] }}
-      </n-button>
-      <n-button tag="a" text class="nav-picker" :href="repoUrl" target="_blank">
-        GitHub
-      </n-button>
-      <n-text class="nav-picker">
-        {{ version }}
-      </n-text>
-      <n-button
-        v-if="dev"
-        text
-        class="nav-picker"
-        @click="handleDisplayModeUpdate"
-      >
-        {{ displayModeLabelMap[displayMode] }}
-      </n-button>
-      <n-button
-        v-if="tusimple || dev"
-        text
-        class="nav-picker"
-        @click="handleConfigProviderUpdate"
-      >
-        {{ cfgProviderLabelMap[configProviderName] }}
-      </n-button>
-    </div>
-  </n-layout-header>
-</template>
-
-<script>
-import { computed, ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useMessage, version } from 'naive-ui'
+<script lang="ts">
 import { MenuOutline } from '@vicons/ionicons5'
-import { repoUrl } from './utils/github-url'
-import { i18n, useIsMobile, useIsTablet } from './utils/composables'
-import { findMenuValue } from './utils/route'
+import { useMessage, version } from 'naive-ui'
+import { computed, defineComponent, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  useThemeName,
-  useLocaleName,
-  useDisplayMode,
-  useFlattenedDocOptions,
+  useComponentOptions,
   useConfigProviderName,
+  useDisplayMode,
   useDocOptions,
-  useComponentOptions
+  useFlattenedDocOptions,
+  useLocaleName,
+  useThemeName
 } from './store'
 import { renderMenuLabel } from './store/menu-options'
+import { i18n, useIsMobile, useIsTablet } from './utils/composables'
+import { repoUrl } from './utils/github-url'
+import { findMenuValue } from './utils/route'
 
 // match substr
-function match (pattern, string) {
-  if (!pattern.length) return true
-  if (!string.length) return false
-  if (pattern[0] === string[0]) return match(pattern.slice(1), string.slice(1))
+function match(pattern, string) {
+  if (!pattern.length)
+    return true
+  if (!string.length)
+    return false
+  if (pattern[0] === string[0])
+    return match(pattern.slice(1), string.slice(1))
   return match(pattern, string.slice(1))
 }
 
@@ -133,12 +57,12 @@ const locales = {
   }
 }
 
-export default {
+export default defineComponent({
   name: 'SiteHeader',
   components: {
     MenuOutline
   },
-  setup () {
+  setup() {
     const message = useMessage()
     const route = useRoute()
     const router = useRouter()
@@ -148,6 +72,16 @@ export default {
 
     // i18n
     const { t } = i18n(locales)
+
+    // theme
+    const themeNameRef = useThemeName()
+    const themeLabelMapRef = computed(() => ({
+      dark: t('light'),
+      light: t('dark')
+    }))
+
+    // locale
+    const localeNameRef = useLocaleName()
 
     // menu
     const menuOptionsRef = computed(() => {
@@ -160,19 +94,22 @@ export default {
         {
           key: 'doc',
           label: t('doc'),
-          path: themeAndLocaleReg.exec(route.path)[0] + '/docs/introduction'
+          path: `${themeAndLocaleReg.exec(route.path)[0]}/docs/introduction`
         },
         {
           key: 'component',
           label: t('component'),
-          path: themeAndLocaleReg.exec(route.path)[0] + '/components/button'
+          path: `${themeAndLocaleReg.exec(route.path)[0]}/components/button`
         }
       ]
     })
     const menuValueRef = computed(() => {
-      if (/\/docs\//.test(route.path)) return 'doc'
-      if (/\/components\//.test(route.path)) return 'component'
-      else if (route.name === 'home') return 'home'
+      if (/\/docs\//.test(route.path))
+        return 'doc'
+      if (/\/components\//.test(route.path))
+        return 'component'
+      else if (route.name === 'home')
+        return 'home'
       return null
     })
 
@@ -198,12 +135,12 @@ export default {
           key: 'doc',
           label: t('doc'),
           children: docOptionsRef.value,
-          path: themeAndLocaleReg.exec(route.path)[0] + '/docs/introduction'
+          path: `${themeAndLocaleReg.exec(route.path)[0]}/docs/introduction`
         },
         {
           key: 'component',
           label: t('component'),
-          path: themeAndLocaleReg.exec(route.path)[0] + '/components/button',
+          path: `${themeAndLocaleReg.exec(route.path)[0]}/components/button`,
           children: componentOptionsRef.value
         },
         {
@@ -213,50 +150,49 @@ export default {
       ]
     })
     const mobileMenuValueRef = computed(() => {
-      if (route.name === 'home') return 'home'
+      if (route.name === 'home')
+        return 'home'
       return findMenuValue(mobileMenuOptionsRef.value, route.path)
     })
-    function handleUpdateMobileMenu (value, { path }) {
+    function handleUpdateMobileMenu(value, { path }) {
       if (value === 'theme') {
         handleThemeUpdate()
-      } else if (value === 'locale') {
+      }
+      else if (value === 'locale') {
         if (localeNameRef.value === 'zh-CN') {
           localeNameRef.value = 'en-US'
-        } else {
+        }
+        else {
           localeNameRef.value = 'zh-CN'
         }
-      } else if (path) {
+      }
+      else if (path) {
         router.push(path)
-      } else {
+      }
+      else {
         window.open(repoUrl, '_blank')
       }
       mobilePopoverRef.value.setShow(false)
     }
 
-    // theme
-    const themeNameRef = useThemeName()
-    const themeLabelMapRef = computed(() => ({
-      dark: t('light'),
-      light: t('dark')
-    }))
-    function handleThemeUpdate () {
+    function handleThemeUpdate() {
       if (themeNameRef.value === 'dark') {
         themeNameRef.value = 'light'
-      } else {
+      }
+      else {
         themeNameRef.value = 'dark'
       }
     }
 
-    // locale
-    const localeNameRef = useLocaleName()
     const localeLabelMap = {
       'zh-CN': 'English',
       'en-US': '中文'
     }
-    function handleLocaleUpdate () {
+    function handleLocaleUpdate() {
       if (localeNameRef.value === 'zh-CN') {
         localeNameRef.value = 'en-US'
-      } else {
+      }
+      else {
         localeNameRef.value = 'zh-CN'
       }
     }
@@ -267,10 +203,11 @@ export default {
       common: 'Debug',
       debug: 'Prod'
     }
-    function handleDisplayModeUpdate () {
+    function handleDisplayModeUpdate() {
       if (displayModeRef.value === 'common') {
         displayModeRef.value = 'debug'
-      } else {
+      }
+      else {
         displayModeRef.value = 'common'
       }
     }
@@ -281,10 +218,11 @@ export default {
       tusimple: t('defaultTheme'),
       default: t('tusimpleTheme')
     }))
-    function handleConfigProviderUpdate () {
+    function handleConfigProviderUpdate() {
       if (configProviderNameRef.value === 'tusimple') {
         configProviderNameRef.value = 'default'
-      } else {
+      }
+      else {
         configProviderNameRef.value = 'tusimple'
       }
     }
@@ -293,13 +231,22 @@ export default {
     const searchableOptionsRef = useFlattenedDocOptions()
     const searchPatternRef = ref('')
     const searchOptionsRef = computed(() => {
-      function getLabel (item) {
+      // function getLabel(item) {
+      //   if (item.label) {
+      //     return typeof item.extra === 'function'
+      //       ? () => [item.label, ' ', item.extra()]
+      //       : item.label + (item.extra ? ' ' + item.extra : '')
+      //   }
+      //   return item.key
+      // }
+      function getSearchableContent(item) {
         if (item.label) {
-          return item.label + (item.extra ? ' ' + item.extra : '')
+          return item.label + (item.extraString ? ` ${item.extraString}` : '')
         }
         return item.key
       }
-      if (!searchPatternRef.value) return []
+      if (!searchPatternRef.value)
+        return []
       const replaceRegex = / |-/g
       return searchableOptionsRef.value
         .filter((item) => {
@@ -307,22 +254,24 @@ export default {
             .toLowerCase()
             .replace(replaceRegex, '')
             .slice(0, 20)
-          const label = getLabel(item).toLowerCase().replace(replaceRegex, '')
+          const label = getSearchableContent(item)
+            .toLowerCase()
+            .replace(replaceRegex, '')
           return match(pattern, label)
         })
-        .map((item) => ({
-          label: getLabel(item),
+        .map(item => ({
+          label: getSearchableContent(item),
           value: item.path
         }))
     })
-    function handleSearch (value) {
+    function handleSearch(value) {
       router.push(value)
     }
 
     // common
     const isMobileRef = useIsMobile()
     const isTabletRef = useIsTablet()
-    function handleLogoClick () {
+    function handleLogoClick() {
       if (/^(\/[^/]+){2}$/.test(route.path)) {
         message.info(t('alreadyHome'))
         return
@@ -330,7 +279,18 @@ export default {
       router.push(/^(\/[^/]+){2}/.exec(route.path)[0])
     }
 
+    // responsive menu
+    const menuInstRef = ref()
+    let lastWindowInnerWidth = window.innerWidth
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > lastWindowInnerWidth) {
+        menuInstRef.value?.deriveResponsiveState()
+      }
+      lastWindowInnerWidth = window.innerWidth
+    })
+
     return {
+      menuInstRef,
       renderMenuLabel,
       mobilePopoverRef,
       tusimple: process.env.TUSIMPLE,
@@ -384,8 +344,122 @@ export default {
       })
     }
   }
-}
+})
 </script>
+
+<template>
+  <n-layout-header bordered class="nav" :style="style">
+    <n-text tag="div" class="ui-logo" :depth="1" @click="handleLogoClick">
+      <img src="./assets/images/naivelogo.svg">
+      <span v-if="!isMobile">Naive UI</span>
+    </n-text>
+    <div
+      :style="
+        !isMobile ? 'display: flex; align-items: center; overflow: hidden;' : ''
+      "
+    >
+      <div v-if="!(isMobile || isTablet)" class="nav-menu">
+        <n-menu
+          ref="menuInstRef"
+          responsive
+          mode="horizontal"
+          :value="menuValue"
+          :options="menuOptions"
+          :render-label="renderMenuLabel"
+        />
+      </div>
+      <n-auto-complete
+        v-model:value="searchPattern"
+        :style="
+          !isMobile
+            ? 'width: 216px; margin-left: 24px; margin-right: 12px; flex-shrink: 0;'
+            : undefined
+        "
+        :placeholder="t('searchPlaceholder')"
+        :options="searchOptions"
+        clear-after-select
+        blur-after-select
+        @select="handleSearch"
+      />
+      <!-- TODO: add it -->
+      <!-- template #suffix>
+        <span style="color: var(--placeholder-color)">⌘ + K</span>
+      </template -->
+    </div>
+    <n-popover
+      v-if="isMobile || isTablet"
+      ref="mobilePopoverRef"
+      style="padding: 0; width: 288px"
+      placement="bottom-end"
+      display-directive="show"
+      trigger="click"
+    >
+      <template #trigger>
+        <n-icon size="20" style="margin-left: 12px">
+          <MenuOutline />
+        </n-icon>
+      </template>
+      <div style="overflow: auto; max-height: 79vh">
+        <n-menu
+          :value="mobileMenuValue"
+          :options="mobileMenuOptions"
+          :indent="18"
+          :render-label="renderMenuLabel"
+          @update:value="handleUpdateMobileMenu"
+        />
+      </div>
+    </n-popover>
+    <div v-else class="nav-end">
+      <n-button
+        size="small"
+        quaternary
+        class="nav-picker"
+        @click="handleLocaleUpdate"
+      >
+        {{ localeLabelMap[locale] }}
+      </n-button>
+      <n-button
+        size="small"
+        quaternary
+        class="nav-picker"
+        @click="handleThemeUpdate"
+      >
+        {{ themeLabelMap[theme] }}
+      </n-button>
+      <n-button
+        size="small"
+        tag="a"
+        quaternary
+        class="nav-picker"
+        :href="repoUrl"
+        target="_blank"
+      >
+        GitHub
+      </n-button>
+      <n-text class="nav-picker padded">
+        {{ version }}
+      </n-text>
+      <n-button
+        v-if="dev"
+        size="small"
+        quaternary
+        class="nav-picker"
+        @click="handleDisplayModeUpdate"
+      >
+        {{ displayModeLabelMap[displayMode] }}
+      </n-button>
+      <n-button
+        v-if="tusimple || dev"
+        size="small"
+        quaternary
+        class="nav-picker"
+        @click="handleConfigProviderUpdate"
+      >
+        {{ cfgProviderLabelMap[configProviderName] }}
+      </n-button>
+    </div>
+  </n-layout-header>
+</template>
 
 <style scoped>
 .nav {
@@ -410,10 +484,17 @@ export default {
 
 .nav-menu {
   padding-left: 36px;
+  overflow: hidden;
+  flex-grow: 0;
+  flex-shrink: 1;
 }
 
 .nav-picker {
-  margin-right: 24px;
+  margin-right: 4px;
+}
+
+.nav-picker.padded {
+  padding: 0 10px;
 }
 
 .nav-picker:last-child {
@@ -427,7 +508,9 @@ export default {
 </style>
 
 <style>
-.nav-menu .n-menu-item {
+.nav-menu .n-menu-item,
+.nav-menu .n-submenu,
+.nav-menu .n-menu-item-content {
   height: calc(var(--header-height) - 1px) !important;
 }
 </style>

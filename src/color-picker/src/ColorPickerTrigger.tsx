@@ -1,8 +1,10 @@
-import { HSLA, toHslaString } from 'seemly'
-import { defineComponent, PropType, h } from 'vue'
+import { type HSLA, toHslaString } from 'seemly'
+import { defineComponent, h, inject, type PropType, type SlotsType } from 'vue'
+import { colorPickerInjectionKey } from './context'
 
 export default defineComponent({
   name: 'ColorPickerTrigger',
+  slots: Object as SlotsType<Record<string, never>>,
   props: {
     clsPrefix: {
       type: String,
@@ -13,39 +15,53 @@ export default defineComponent({
       default: null
     },
     hsla: {
-      type: (Array as unknown) as PropType<HSLA | null>,
+      type: Array as unknown as PropType<HSLA | null>,
       default: null
     },
+    disabled: Boolean,
     onClick: Function as PropType<() => void>
   },
-  render () {
-    const { hsla, value, clsPrefix } = this
-    return (
-      <div class={`${clsPrefix}-color-picker-trigger`} onClick={this.onClick}>
-        <div class={`${clsPrefix}-color-picker-trigger__fill`}>
-          <div class={`${clsPrefix}-color-picker-checkboard`} />
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              backgroundColor: hsla ? toHslaString(hsla) : ''
-            }}
-          />
-          {value && hsla ? (
+  setup(props) {
+    const { colorPickerSlots, renderLabelRef } = inject(
+      colorPickerInjectionKey,
+      null
+    )!
+    return () => {
+      const { hsla, value, clsPrefix, onClick, disabled } = props
+      const renderLabel = colorPickerSlots.label || renderLabelRef.value
+      return (
+        <div
+          class={[
+            `${clsPrefix}-color-picker-trigger`,
+            disabled && `${clsPrefix}-color-picker-trigger--disabled`
+          ]}
+          onClick={disabled ? undefined : onClick}
+        >
+          <div class={`${clsPrefix}-color-picker-trigger__fill`}>
+            <div class={`${clsPrefix}-color-picker-checkboard`} />
             <div
-              class={`${clsPrefix}-color-picker-trigger__value`}
               style={{
-                color: hsla[2] > 50 || hsla[3] < 0.5 ? 'black' : 'white'
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                backgroundColor: hsla ? toHslaString(hsla) : ''
               }}
-            >
-              {value}
-            </div>
-          ) : null}
+            />
+            {value && hsla ? (
+              <div
+                class={`${clsPrefix}-color-picker-trigger__value`}
+                style={{
+                  color: hsla[2] > 50 || hsla[3] < 0.5 ? 'black' : 'white'
+                }}
+              >
+                {renderLabel ? renderLabel(value) : value}
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
-    )
+      )
+    }
   }
 })
