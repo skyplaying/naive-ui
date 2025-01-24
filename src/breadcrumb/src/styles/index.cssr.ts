@@ -1,65 +1,102 @@
-import { c, cB, cE } from '../../../_utils/cssr'
+import { c, cB, cE, cM } from '../../../_utils/cssr'
 
 // vars:
-// --font-size
-// --bezier
-// --item-text-color
-// --item-text-color-hover
-// --item-text-color-pressed
-// --item-text-color-active
-// --separator-color
-// --font-weight-active
+// --n-font-size
+// --n-bezier
+// --n-item-text-color
+// --n-item-text-color-hover
+// --n-item-text-color-pressed
+// --n-item-text-color-active
+// --n-separator-color
+// --n-font-weight-active
+// --n-item-border-radius
+// --n-item-color-hover
+// --n-item-color-active
+// --n-item-line-height
 export default cB('breadcrumb', `
   white-space: nowrap;
+  cursor: default;
+  line-height: var(--n-item-line-height);
 `, [
-  cB('breadcrumb-item', {
-    fontSize: 'var(--font-size)',
-    transition: 'color .3s var(--bezier)'
-  }, [
+  c('ul', `
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  `),
+  c('a', `
+    color: inherit;
+    text-decoration: inherit;
+  `),
+  cB('breadcrumb-item', `
+    font-size: var(--n-font-size);
+    transition: color .3s var(--n-bezier);
+    display: inline-flex;
+    align-items: center;
+  `, [
     cB('icon', `
       font-size: 18px;
       vertical-align: -.2em;
-      transition: color .3s var(--bezier);
-      color: var(--item-text-color);
+      transition: color .3s var(--n-bezier);
+      color: var(--n-item-text-color);
     `),
-    cE('link', {
-      cursor: 'pointer',
-      transition: 'color .3s var(--bezier)',
-      color: 'var(--item-text-color)'
-    }),
-    cE('separator', {
-      margin: '0 8px',
-      color: 'var(--separator-color)',
-      transition: 'color .3s var(--bezier)'
-    }),
-    c('&:hover', [
-      cB('icon', {
-        color: 'var(--item-text-color-hover)'
-      }),
-      cE('link', {
-        color: 'var(--item-text-color-hover)'
-      })
+    c('&:not(:last-child)', [
+      cM('clickable', [
+        cE('link', `
+          cursor: pointer;
+        `, [
+          c('&:hover', `
+            background-color: var(--n-item-color-hover);
+          `),
+          c('&:active', `
+            background-color: var(--n-item-color-pressed);  
+          `)
+        ])
+      ])
     ]),
-    c('&:active', [
-      cB('icon', {
-        color: 'var(--item-text-color-pressed)'
-      }),
-      cE('link', {
-        color: 'var(--item-text-color-pressed)'
-      })
+    cE('link', `
+      padding: 4px;
+      border-radius: var(--n-item-border-radius);
+      transition:
+        background-color .3s var(--n-bezier),
+        color .3s var(--n-bezier);
+      color: var(--n-item-text-color);
+      position: relative;
+    `, [
+      c('&:hover', `
+        color: var(--n-item-text-color-hover);
+      `, [
+        cB('icon', `
+          color: var(--n-item-text-color-hover);
+        `)
+      ]),
+      c('&:active', `
+        color: var(--n-item-text-color-pressed);
+      `, [
+        cB('icon', `
+          color: var(--n-item-text-color-pressed);
+        `)
+      ])
     ]),
+    cE('separator', `
+      margin: 0 8px;
+      color: var(--n-separator-color);
+      transition: color .3s var(--n-bezier);
+      user-select: none;
+      -webkit-user-select: none;
+    `),
     c('&:last-child', [
       cE('link', `
-        font-weight: var(--font-weight-active);
+        font-weight: var(--n-font-weight-active);
         cursor: unset;
-        color: var(--item-text-color-active);
-      `),
-      cB('icon', {
-        color: 'var(--item-text-color-active)'
-      }),
-      cE('separator', {
-        display: 'none'
-      })
+        color: var(--n-item-text-color-active);
+      `, [
+        cB('icon', `
+          color: var(--n-item-text-color-active);
+        `)
+      ]),
+      cE('separator', `
+        display: none;
+      `)
     ])
   ])
 ])

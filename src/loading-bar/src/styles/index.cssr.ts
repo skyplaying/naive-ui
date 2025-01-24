@@ -1,10 +1,10 @@
+import { fadeInTransition } from '../../../_styles/transitions/fade-in.cssr'
 import { cB, cM } from '../../../_utils/cssr'
-import fadeInTransition from '../../../_styles/transitions/fade-in.cssr'
 
 // vars:
-// --height
-// --color-loading
-// --color-error
+// --n-height
+// --n-color-loading
+// --n-color-error
 export default cB('loading-bar-container', `
   z-index: 5999;
   position: fixed;
@@ -21,23 +21,23 @@ export default cB('loading-bar-container', `
     width: 100%;
     transition:
       max-width 4s linear,
-      background-color .2s linear;
-    height: var(--height);
+      background .2s linear;
+    height: var(--n-height);
   `, [
     cM('starting', `
-      background-color: var(--color-loading);
+      background: var(--n-color-loading);
     `),
     cM('finishing', `
-      background-color: var(--color-loading);
+      background: var(--n-color-loading);
       transition:
         max-width .2s linear,
-        background-color .2s linear;
+        background .2s linear;
     `),
     cM('error', `
-      background-color: var(--color-error);
+      background: var(--n-color-error);
       transition:
         max-width .2s linear,
-        background-color .2s linear;
+        background .2s linear;
     `)
   ])
 ])

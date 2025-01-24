@@ -1,105 +1,145 @@
-import {
-  h,
-  defineComponent,
-  computed,
-  PropType,
-  CSSProperties,
-  renderSlot
-} from 'vue'
-import { EmptyIcon } from '../../_internal/icons'
-import { useConfig, useLocale, useTheme } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
-import { createKey, ExtractPublicPropTypes } from '../../_utils'
-import { NBaseIcon } from '../../_internal'
-import { emptyLight } from '../styles'
+import type { ExtractPublicPropTypes } from '../../_utils'
 import type { EmptyTheme } from '../styles'
+import {
+  computed,
+  defineComponent,
+  h,
+  type PropType,
+  type SlotsType,
+  type VNode,
+  type VNodeChild
+} from 'vue'
+import { NBaseIcon } from '../../_internal/icon'
+import { EmptyIcon } from '../../_internal/icons'
+import { useConfig, useLocale, useTheme, useThemeClass } from '../../_mixins'
+import { createKey } from '../../_utils'
+import { emptyLight } from '../styles'
 import style from './styles/index.cssr'
 
-const emptyProps = {
+export const emptyProps = {
   ...(useTheme.props as ThemeProps<EmptyTheme>),
-  description: {
-    type: String,
-    default: undefined
-  },
+  description: String,
   showDescription: {
     type: Boolean,
     default: true
   },
+  showIcon: {
+    type: Boolean,
+    default: true
+  },
   size: {
-    type: String as PropType<'small' | 'medium' | 'large' | 'huge'>,
+    type: String as PropType<'tiny' | 'small' | 'medium' | 'large' | 'huge'>,
     default: 'medium'
-  }
+  },
+  renderIcon: Function as PropType<() => VNodeChild>
 }
 
 export type EmptyProps = ExtractPublicPropTypes<typeof emptyProps>
 
+export interface EmptySlots {
+  default?: () => VNode[]
+  extra?: () => VNode[]
+  icon?: () => VNode[]
+}
+
 export default defineComponent({
   name: 'Empty',
   props: emptyProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  slots: Object as SlotsType<EmptySlots>,
+  setup(props) {
+    const { mergedClsPrefixRef, inlineThemeDisabled, mergedComponentPropsRef }
+      = useConfig(props)
     const themeRef = useTheme(
       'Empty',
-      'Empty',
+      '-empty',
       style,
       emptyLight,
       props,
       mergedClsPrefixRef
     )
     const { localeRef } = useLocale('Empty')
+    const mergedDescriptionRef = computed(() => {
+      return (
+        props.description ?? mergedComponentPropsRef?.value?.Empty?.description
+      )
+    })
+    const mergedRenderIconRef = computed(
+      () =>
+        mergedComponentPropsRef?.value?.Empty?.renderIcon
+        || (() => <EmptyIcon />)
+    )
+    const cssVarsRef = computed(() => {
+      const { size } = props
+      const {
+        common: { cubicBezierEaseInOut },
+        self: {
+          [createKey('iconSize', size)]: iconSize,
+          [createKey('fontSize', size)]: fontSize,
+          textColor,
+          iconColor,
+          extraTextColor
+        }
+      } = themeRef.value
+      return {
+        '--n-icon-size': iconSize,
+        '--n-font-size': fontSize,
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-text-color': textColor,
+        '--n-icon-color': iconColor,
+        '--n-extra-text-color': extraTextColor
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'empty',
+          computed(() => {
+            let hash = ''
+            const { size } = props
+            hash += size[0]
+            return hash
+          }),
+          cssVarsRef,
+          props
+        )
+      : undefined
     return {
       mergedClsPrefix: mergedClsPrefixRef,
+      mergedRenderIcon: mergedRenderIconRef,
       localizedDescription: computed(() => {
-        return props.description || localeRef.value.description
+        return mergedDescriptionRef.value || localeRef.value.description
       }),
-      cssVars: computed(() => {
-        const { size } = props
-        const {
-          common: { cubicBezierEaseInOut },
-          self: {
-            [createKey('iconSize', size)]: iconSize,
-            [createKey('fontSize', size)]: fontSize,
-            textColor,
-            iconColor,
-            extraTextColor
-          }
-        } = themeRef.value
-        return {
-          '--icon-size': iconSize,
-          '--font-size': fontSize,
-          '--bezier': cubicBezierEaseInOut,
-          '--text-color': textColor,
-          '--icon-color': iconColor,
-          '--extra-text-color': extraTextColor
-        }
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
-    const { $slots, mergedClsPrefix } = this
+  render() {
+    const { $slots, mergedClsPrefix, onRender } = this
+    onRender?.()
     return (
       <div
-        class={`${mergedClsPrefix}-empty`}
-        style={this.cssVars as CSSProperties}
+        class={[`${mergedClsPrefix}-empty`, this.themeClass]}
+        style={this.cssVars as any}
       >
-        <div class={`${mergedClsPrefix}-empty__icon`}>
-          {renderSlot($slots, 'icon', undefined, () => [
-            <NBaseIcon clsPrefix={mergedClsPrefix}>
-              {{ default: () => <EmptyIcon /> }}
-            </NBaseIcon>
-          ])}
-        </div>
+        {this.showIcon ? (
+          <div class={`${mergedClsPrefix}-empty__icon`}>
+            {$slots.icon ? (
+              $slots.icon()
+            ) : (
+              <NBaseIcon clsPrefix={mergedClsPrefix}>
+                {{ default: this.mergedRenderIcon }}
+              </NBaseIcon>
+            )}
+          </div>
+        ) : null}
         {this.showDescription ? (
           <div class={`${mergedClsPrefix}-empty__description`}>
-            {renderSlot($slots, 'default', undefined, () => [
-              this.localizedDescription
-            ])}
+            {$slots.default ? $slots.default() : this.localizedDescription}
           </div>
         ) : null}
         {$slots.extra ? (
-          <div class={`${mergedClsPrefix}-empty__extra`}>
-            {renderSlot($slots, 'extra')}
-          </div>
+          <div class={`${mergedClsPrefix}-empty__extra`}>{$slots.extra()}</div>
         ) : null}
       </div>
     )

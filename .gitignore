@@ -9,8 +9,10 @@ test/unit/coverage
 package-lock.json
 playground/temp
 yarn.lock
+.DS_Store
 .vscode
 .idea
+.pulsar
 *.swp
 *.tgz
 coverage
@@ -21,4 +23,7 @@ lib
 es
 *.tsbuildinfo
 pnpm-lock.yaml
+web-types.json
 ~*
+.pnpm-debug.log
+.history

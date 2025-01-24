@@ -1,11 +1,20 @@
-import { h, defineComponent, computed, PropType, CSSProperties } from 'vue'
-import { depx, getGap } from 'seemly'
-import { createKey, flatten, getSlot } from '../../_utils'
-import type { ExtractPublicPropTypes } from '../../_utils'
-import { useConfig, useTheme } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
-import { spaceLight } from '../styles'
+import type { ExtractPublicPropTypes } from '../../_utils'
 import type { SpaceTheme } from '../styles'
+import { depx, getGap } from 'seemly'
+import {
+  Comment,
+  computed,
+  type CSSProperties,
+  defineComponent,
+  h,
+  type PropType
+} from 'vue'
+import { useConfig, useTheme } from '../../_mixins'
+import { useRtl } from '../../_mixins/use-rtl'
+import { createKey, flatten, getSlot } from '../../_utils'
+import { spaceLight } from '../styles'
+import { ensureSupportFlexGap } from './utils'
 
 type Align =
   | 'stretch'
@@ -16,25 +25,44 @@ type Align =
   | 'flex-end'
   | 'flex-start'
 
-const spaceProps = {
+export type Justify =
+  | 'start'
+  | 'end'
+  | 'center'
+  | 'space-around'
+  | 'space-between'
+  | 'space-evenly'
+
+export const spaceProps = {
   ...(useTheme.props as ThemeProps<SpaceTheme>),
   align: String as PropType<Align>,
   justify: {
-    type: String as PropType<'start' | 'end'>,
+    type: String as PropType<Justify>,
     default: 'start'
   },
   inline: Boolean,
   vertical: Boolean,
+  reverse: Boolean,
   size: {
     type: [String, Number, Array] as PropType<
-    'small' | 'medium' | 'large' | number | [number, number]
+      'small' | 'medium' | 'large' | number | [number, number]
     >,
     default: 'medium'
   },
+  wrapItem: {
+    type: Boolean,
+    default: true
+  },
+  itemClass: String,
   itemStyle: [String, Object] as PropType<string | CSSProperties>,
   wrap: {
     type: Boolean,
     default: true
+  },
+  // internal
+  internalUseGap: {
+    type: Boolean,
+    default: undefined
   }
 } as const
 
@@ -43,17 +71,20 @@ export type SpaceProps = ExtractPublicPropTypes<typeof spaceProps>
 export default defineComponent({
   name: 'Space',
   props: spaceProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  setup(props) {
+    const { mergedClsPrefixRef, mergedRtlRef } = useConfig(props)
     const themeRef = useTheme(
       'Space',
-      'Space',
+      '-space',
       undefined,
       spaceLight,
       props,
       mergedClsPrefixRef
     )
+    const rtlEnabledRef = useRtl('Space', mergedRtlRef, mergedClsPrefixRef)
     return {
+      useGap: ensureSupportFlexGap(),
+      rtlEnabled: rtlEnabledRef,
       mergedClsPrefix: mergedClsPrefixRef,
       margin: computed<{ horizontal: number, vertical: number }>(() => {
         const { size } = props
@@ -80,58 +111,122 @@ export default defineComponent({
       })
     }
   },
-  render () {
+  render() {
     const {
       vertical,
+      reverse,
       align,
       inline,
       justify,
+      itemClass,
       itemStyle,
       margin,
       wrap,
-      mergedClsPrefix
+      mergedClsPrefix,
+      rtlEnabled,
+      useGap,
+      wrapItem,
+      internalUseGap
     } = this
-    const children = flatten(getSlot(this))
+    const children = flatten(getSlot(this), false)
+    if (!children.length)
+      return null
     const horizontalMargin = `${margin.horizontal}px`
+    const semiHorizontalMargin = `${margin.horizontal / 2}px`
     const verticalMargin = `${margin.vertical}px`
     const semiVerticalMargin = `${margin.vertical / 2}px`
     const lastIndex = children.length - 1
+    const isJustifySpace = justify.startsWith('space-')
     return (
       <div
         role="none"
-        class={`${mergedClsPrefix}-space`}
+        class={[
+          `${mergedClsPrefix}-space`,
+          rtlEnabled && `${mergedClsPrefix}-space--rtl`
+        ]}
         style={{
           display: inline ? 'inline-flex' : 'flex',
-          flexDirection: vertical ? 'column' : 'row',
-          flexWrap: !wrap ? 'nowrap' : 'wrap',
-          justifyContent: 'flex-' + justify,
-          marginTop: vertical ? '' : `-${semiVerticalMargin}`,
-          marginBottom: vertical ? '' : `-${semiVerticalMargin}`,
-          alignItems: align
+          flexDirection: (() => {
+            if (vertical && !reverse)
+              return 'column'
+            if (vertical && reverse)
+              return 'column-reverse'
+            if (!vertical && reverse)
+              return 'row-reverse'
+            /** (!vertical && !reverse) */ else return 'row'
+          })(),
+          justifyContent: ['start', 'end'].includes(justify)
+            ? `flex-${justify}`
+            : justify,
+          flexWrap: !wrap || vertical ? 'nowrap' : 'wrap',
+          marginTop: useGap || vertical ? '' : `-${semiVerticalMargin}`,
+          marginBottom: useGap || vertical ? '' : `-${semiVerticalMargin}`,
+          alignItems: align,
+          gap: useGap ? `${margin.vertical}px ${margin.horizontal}px` : ''
         }}
       >
-        {children.map((child, index) => (
-          <div
-            role="none"
-            style={[
-              itemStyle as any,
-              {
-                maxWidth: '100%'
-              },
-              vertical
-                ? {
-                    marginBottom: index !== lastIndex ? verticalMargin : ''
-                  }
-                : {
-                    marginRight: index !== lastIndex ? horizontalMargin : '',
-                    paddingTop: semiVerticalMargin,
-                    paddingBottom: semiVerticalMargin
-                  }
-            ]}
-          >
-            {child}
-          </div>
-        ))}
+        {!wrapItem && (useGap || internalUseGap)
+          ? children
+          : children.map((child, index) =>
+              child.type === Comment ? (
+                child
+              ) : (
+                <div
+                  role="none"
+                  class={itemClass}
+                  style={[
+                    itemStyle as any,
+                    {
+                      maxWidth: '100%'
+                    },
+                    useGap
+                      ? ''
+                      : vertical
+                        ? {
+                            marginBottom:
+                              index !== lastIndex ? verticalMargin : ''
+                          }
+                        : rtlEnabled
+                          ? {
+                              marginLeft: isJustifySpace
+                                ? justify === 'space-between'
+                                && index === lastIndex
+                                  ? ''
+                                  : semiHorizontalMargin
+                                : index !== lastIndex
+                                  ? horizontalMargin
+                                  : '',
+                              marginRight: isJustifySpace
+                                ? justify === 'space-between' && index === 0
+                                  ? ''
+                                  : semiHorizontalMargin
+                                : '',
+                              paddingTop: semiVerticalMargin,
+                              paddingBottom: semiVerticalMargin
+                            }
+                          : {
+                              marginRight: isJustifySpace
+                                ? justify === 'space-between'
+                                && index === lastIndex
+                                  ? ''
+                                  : semiHorizontalMargin
+                                : index !== lastIndex
+                                  ? horizontalMargin
+                                  : '',
+                              marginLeft: isJustifySpace
+                                ? justify === 'space-between' && index === 0
+                                  ? ''
+                                  : semiHorizontalMargin
+                                : '',
+                              paddingTop: semiVerticalMargin,
+                              paddingBottom: semiVerticalMargin
+                            }
+                  ]}
+                >
+                  {child}
+                </div>
+              )
+            )}
       </div>
     )
   }

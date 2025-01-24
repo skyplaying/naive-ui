@@ -1,9 +1,9 @@
-import sizeVariables from './_common'
-import { commonLight } from '../../_styles/common'
+import type { Theme } from '../../_mixins'
 import type { ThemeCommonVars } from '../../_styles/common'
-import { Theme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
+import sizeVariables from './_common'
 
-const self = (vars: ThemeCommonVars) => {
+function self(vars: ThemeCommonVars) {
   const indicatorColor = 'rgba(0, 0, 0, .85)'
   const boxShadow = '0 2px 8px 0 rgba(0, 0, 0, 0.12)'
   const {
@@ -14,15 +14,19 @@ const self = (vars: ThemeCommonVars) => {
     modalColor,
     popoverColor,
     borderRadius,
-    fontSize
+    fontSize,
+    opacityDisabled
   } = vars
+
   return {
     ...sizeVariables,
     fontSize,
-    railColor: railColor,
+    markFontSize: fontSize,
+    railColor,
     railColorHover: railColor,
     fillColor: primaryColor,
     fillColorHover: primaryColor,
+    opacityDisabled,
     handleColor: '#FFF',
     dotColor: cardColor,
     dotColorModal: modalColor,
@@ -35,7 +39,7 @@ const self = (vars: ThemeCommonVars) => {
       '0 1px 4px 0 rgba(0, 0, 0, 0.3), inset 0 0 1px 0 rgba(0, 0, 0, 0.05)',
     handleBoxShadowFocus:
       '0 1px 4px 0 rgba(0, 0, 0, 0.3), inset 0 0 1px 0 rgba(0, 0, 0, 0.05)',
-    indicatorColor: indicatorColor,
+    indicatorColor,
     indicatorBoxShadow: boxShadow,
     indicatorTextColor: baseColor,
     indicatorBorderRadius: borderRadius,

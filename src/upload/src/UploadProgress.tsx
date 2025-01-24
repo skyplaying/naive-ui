@@ -1,4 +1,4 @@
-import { h, defineComponent, inject, PropType } from 'vue'
+import { defineComponent, h, inject, type PropType } from 'vue'
 import { NFadeInExpandTransition } from '../../_internal'
 import { NProgress } from '../../progress'
 import { uploadInjectionKey } from './interface'
@@ -6,10 +6,7 @@ import { uploadInjectionKey } from './interface'
 export default defineComponent({
   name: 'UploadProgress',
   props: {
-    show: {
-      type: Boolean,
-      default: false
-    },
+    show: Boolean,
     percentage: {
       type: Number,
       required: true
@@ -17,20 +14,15 @@ export default defineComponent({
     status: {
       type: String as PropType<'info' | 'error' | 'success'>,
       required: true
-    },
-    delay: {
-      type: Number,
-      default: 900
     }
   },
-  setup (props) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  setup() {
     const NUpload = inject(uploadInjectionKey)!
     return {
       mergedTheme: NUpload.mergedThemeRef
     }
   },
-  render () {
+  render() {
     return (
       <NFadeInExpandTransition>
         {{

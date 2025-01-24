@@ -1,60 +1,95 @@
-import { h, defineComponent, inject, computed } from 'vue'
-import { AddIcon } from '../../_internal/icons'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import { computed, defineComponent, Fragment, h, inject, mergeProps } from 'vue'
 import { NBaseClose, NBaseIcon } from '../../_internal'
-import { render } from '../../_utils'
-import { tabsInjectionKey } from './interface'
+import { AddIcon } from '../../_internal/icons'
+import { omit, render } from '../../_utils'
+import { type OnBeforeLeaveImpl, tabsInjectionKey } from './interface'
 import { tabPaneProps } from './TabPane'
 
+export const tabProps = {
+  internalLeftPadded: Boolean,
+  internalAddable: Boolean,
+  internalCreatedByPane: Boolean,
+  ...omit(tabPaneProps, ['displayDirective'])
+} as const
+
+export type TabProps = ExtractPublicPropTypes<typeof tabProps>
+
 export default defineComponent({
+  __TAB__: true,
+  inheritAttrs: false,
   name: 'Tab',
-  props: Object.assign(
-    {
-      leftPadded: Boolean,
-      addable: Boolean
-    },
-    tabPaneProps
-  ),
-  setup (props) {
+  props: tabProps,
+  setup(props) {
     const {
       mergedClsPrefixRef,
       valueRef,
       typeRef,
       closableRef,
       tabStyleRef,
+      addTabStyleRef,
+      tabClassRef,
+      addTabClassRef,
+      tabChangeIdRef,
+      onBeforeLeaveRef,
+      triggerRef,
       handleAdd,
-      handleTabClick,
+      activateTab,
       handleClose
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     } = inject(tabsInjectionKey)!
     return {
+      trigger: triggerRef,
       mergedClosable: computed(() => {
-        if (props.addable) return false
+        if (props.internalAddable)
+          return false
         const { closable } = props
-        if (closable === undefined) return closableRef.value
+        if (closable === undefined)
+          return closableRef.value
         return closable
       }),
       style: tabStyleRef,
+      addStyle: addTabStyleRef,
+      tabClass: tabClassRef,
+      addTabClass: addTabClassRef,
       clsPrefix: mergedClsPrefixRef,
       value: valueRef,
       type: typeRef,
-      handleClose (e: MouseEvent) {
+      handleClose(e: MouseEvent) {
         e.stopPropagation()
-        if (props.disabled) return
+        if (props.disabled)
+          return
         handleClose(props.name)
       },
-      handleClick () {
-        if (props.disabled) return
-        if (props.addable) {
+      activateTab() {
+        if (props.disabled)
+          return
+        if (props.internalAddable) {
           handleAdd()
           return
         }
-        handleTabClick(props.name)
+        const { name: nameProp } = props
+        const id = ++tabChangeIdRef.id
+        if (nameProp !== valueRef.value) {
+          const { value: onBeforeLeave } = onBeforeLeaveRef
+          if (!onBeforeLeave) {
+            activateTab(nameProp)
+          }
+          else {
+            void Promise.resolve(
+              (onBeforeLeave as OnBeforeLeaveImpl)(props.name, valueRef.value)
+            ).then((allowLeave) => {
+              if (allowLeave && tabChangeIdRef.id === id) {
+                activateTab(nameProp)
+              }
+            })
+          }
+        }
       }
     }
   },
-  render () {
+  render() {
     const {
-      addable,
+      internalAddable,
       clsPrefix,
       name,
       disabled,
@@ -62,38 +97,50 @@ export default defineComponent({
       tab,
       value,
       mergedClosable,
-      style,
+      trigger,
       $slots: { default: defaultSlot }
     } = this
     const mergedTab = label ?? tab
     return (
       <div class={`${clsPrefix}-tabs-tab-wrapper`}>
-        {this.leftPadded ? (
-          <div class={`${clsPrefix}-tabs-tab-pad`}></div>
+        {this.internalLeftPadded ? (
+          <div class={`${clsPrefix}-tabs-tab-pad`} />
         ) : null}
         <div
           key={name}
           data-name={name}
           data-disabled={disabled ? true : undefined}
-          class={[
-            `${clsPrefix}-tabs-tab`,
+          {...mergeProps(
             {
-              [`${clsPrefix}-tabs-tab--active`]: value === name,
-              [`${clsPrefix}-tabs-tab--disabled`]: disabled,
-              [`${clsPrefix}-tabs-tab--closable`]: mergedClosable,
-              [`${clsPrefix}-tabs-tab--addable`]: addable
-            }
-          ]}
-          onClick={this.handleClick}
-          style={addable ? undefined : style}
+              class: [
+                `${clsPrefix}-tabs-tab`,
+                value === name && `${clsPrefix}-tabs-tab--active`,
+                disabled && `${clsPrefix}-tabs-tab--disabled`,
+                mergedClosable && `${clsPrefix}-tabs-tab--closable`,
+                internalAddable && `${clsPrefix}-tabs-tab--addable`,
+                internalAddable ? this.addTabClass : this.tabClass
+              ],
+              onClick: trigger === 'click' ? this.activateTab : undefined,
+              onMouseenter: trigger === 'hover' ? this.activateTab : undefined,
+              style: internalAddable ? this.addStyle : this.style
+            },
+            this.internalCreatedByPane
+              ? ((this.tabProps || {}) as any)
+              : this.$attrs
+          )}
         >
           <span class={`${clsPrefix}-tabs-tab__label`}>
-            {addable ? (
-              <NBaseIcon clsPrefix={clsPrefix}>
-                {{
-                  default: () => <AddIcon />
-                }}
-              </NBaseIcon>
+            {internalAddable ? (
+              <>
+                <div class={`${clsPrefix}-tabs-tab__height-placeholder`}>
+                  &nbsp;
+                </div>
+                <NBaseIcon clsPrefix={clsPrefix}>
+                  {{
+                    default: () => <AddIcon />
+                  }}
+                </NBaseIcon>
+              </>
             ) : defaultSlot ? (
               defaultSlot()
             ) : typeof mergedTab === 'object' ? (

@@ -1,13 +1,16 @@
-import { Key } from 'treemate'
-import { useMenuChildProps } from './use-menu-child-props'
-import { inject, computed, ComputedRef, ExtractPropTypes, Ref } from 'vue'
-import { MergedTheme } from '../../_mixins/use-theme'
+import type { Key } from 'treemate'
+import type { FollowerPlacement } from 'vueuc'
+import type { MergedTheme } from '../../_mixins/use-theme'
 import type { MenuTheme } from '../styles'
-import { OnUpdateValueImpl } from './interface'
-import { menuInjectionKey } from './Menu'
+import type { OnUpdateValueImpl } from './interface'
 import type { MenuSetupProps } from './Menu'
-import { menuItemGroupInjectionKey } from './MenuOptionGroup'
-import { submenuInjectionKey } from './Submenu'
+import type { UseMenuChildProps } from './use-menu-child-props'
+import { computed, type ComputedRef, inject, type Ref } from 'vue'
+import {
+  menuInjectionKey,
+  menuItemGroupInjectionKey,
+  submenuInjectionKey
+} from './context'
 
 const ICON_MARGIN_RIGHT = 8
 
@@ -34,10 +37,8 @@ export interface MenuOptionGroupInjection {
   paddingLeftRef: Ref<number | undefined>
 }
 
-export type UseMenuChildProps = ExtractPropTypes<typeof useMenuChildProps>
-
 export interface UseMenuChild {
-  dropdownPlacement: ComputedRef<'bottom' | 'right' | 'right-start'>
+  dropdownPlacement: ComputedRef<FollowerPlacement>
   activeIconSize: ComputedRef<number>
   maxIconSize: ComputedRef<number>
   paddingLeft: ComputedRef<number | undefined>
@@ -46,8 +47,7 @@ export interface UseMenuChild {
   NSubmenu: SubmenuInjection | null
 }
 
-export function useMenuChild (props: UseMenuChildProps): UseMenuChild {
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+export function useMenuChild(props: UseMenuChildProps): UseMenuChild {
   const NMenu = inject(menuInjectionKey)!
   const { props: menuProps, mergedCollapsedRef } = NMenu
   const NSubmenu = inject(submenuInjectionKey, null)
@@ -60,9 +60,10 @@ export function useMenuChild (props: UseMenuChildProps): UseMenuChild {
   })
   const dropdownPlacementRef = computed(() => {
     if (horizontalRef.value) {
-      return 'bottom'
+      return menuProps.dropdownPlacement
     }
-    if ('tmNodes' in props) return 'right-start'
+    if ('tmNodes' in props)
+      return 'right-start'
     return 'right'
   })
   const maxIconSizeRef = computed(() => {
@@ -74,12 +75,14 @@ export function useMenuChild (props: UseMenuChildProps): UseMenuChild {
   const activeIconSizeRef = computed(() => {
     if (!horizontalRef.value && props.root && mergedCollapsedRef.value) {
       return menuProps.collapsedIconSize ?? menuProps.iconSize
-    } else {
+    }
+    else {
       return menuProps.iconSize
     }
   })
   const paddingLeftRef = computed(() => {
-    if (horizontalRef.value) return undefined
+    if (horizontalRef.value)
+      return undefined
     const { collapsedWidth, indent, rootIndent } = menuProps
     const { root, isGroup } = props
     const mergedRootIndent = rootIndent === undefined ? indent : rootIndent
@@ -89,30 +92,34 @@ export function useMenuChild (props: UseMenuChildProps): UseMenuChild {
       }
       return mergedRootIndent
     }
-    if (NMenuOptionGroup) {
-      return indent / 2 + (NMenuOptionGroup.paddingLeftRef.value as number)
+    if (
+      NMenuOptionGroup
+      && typeof NMenuOptionGroup.paddingLeftRef.value === 'number'
+    ) {
+      return indent / 2 + NMenuOptionGroup.paddingLeftRef.value
     }
-    if (NSubmenu) {
-      return (
-        (isGroup ? indent / 2 : indent) +
-        (NSubmenu.paddingLeftRef.value as number)
-      )
+    if (NSubmenu && typeof NSubmenu.paddingLeftRef.value === 'number') {
+      return (isGroup ? indent / 2 : indent) + NSubmenu.paddingLeftRef.value
     }
-    return undefined as never
+    // Shouldn't reach here
+    return 0
   })
   const iconMarginRightRef = computed(() => {
     const { collapsedWidth, indent, rootIndent } = menuProps
     const { value: maxIconSize } = maxIconSizeRef
     const { root } = props
-    if (horizontalRef.value) return ICON_MARGIN_RIGHT
-    if (!root) return ICON_MARGIN_RIGHT
-    if (!mergedCollapsedRef.value) return ICON_MARGIN_RIGHT
+    if (horizontalRef.value)
+      return ICON_MARGIN_RIGHT
+    if (!root)
+      return ICON_MARGIN_RIGHT
+    if (!mergedCollapsedRef.value)
+      return ICON_MARGIN_RIGHT
     const mergedRootIndent = rootIndent === undefined ? indent : rootIndent
     return (
-      mergedRootIndent +
-      maxIconSize +
-      ICON_MARGIN_RIGHT -
-      (collapsedWidth + maxIconSize) / 2
+      mergedRootIndent
+      + maxIconSize
+      + ICON_MARGIN_RIGHT
+      - (collapsedWidth + maxIconSize) / 2
     )
   })
   return {
@@ -125,5 +132,3 @@ export function useMenuChild (props: UseMenuChildProps): UseMenuChild {
     NSubmenu
   }
 }
-
-export { useMenuChildProps }

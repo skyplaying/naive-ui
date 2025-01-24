@@ -1,36 +1,29 @@
-import { h, defineComponent } from 'vue'
-import type { ExtractPublicPropTypes } from '../../_utils'
-import useRadio from './use-radio'
+import { defineComponent, h } from 'vue'
+import { type ExtractPublicPropTypes, resolveWrappedSlot } from '../../_utils'
+import { radioBaseProps, setup } from './use-radio'
 
-export type RadioButtonProps = ExtractPublicPropTypes<typeof useRadio.props>
+export const radioButtonProps = radioBaseProps
+export type RadioButtonProps = ExtractPublicPropTypes<typeof radioBaseProps>
 
 export default defineComponent({
   name: 'RadioButton',
-  props: useRadio.props,
-  setup (props) {
-    return useRadio(props)
-  },
-  render () {
+  props: radioBaseProps,
+  setup,
+  render() {
     const { mergedClsPrefix } = this
     return (
-      <div
+      <label
         class={[
           `${mergedClsPrefix}-radio-button`,
-          {
-            [`${mergedClsPrefix}-radio-button--disabled`]: this.mergedDisabled,
-            [`${mergedClsPrefix}-radio-button--checked`]: this
-              .renderSafeChecked,
-            [`${mergedClsPrefix}-radio-button--focus`]: this.focus
-          }
+          this.mergedDisabled && `${mergedClsPrefix}-radio-button--disabled`,
+          this.renderSafeChecked && `${mergedClsPrefix}-radio-button--checked`,
+          this.focus && [`${mergedClsPrefix}-radio-button--focus`]
         ]}
-        onKeyup={this.handleKeyUp}
-        onClick={this.handleClick}
-        onMousedown={this.handleMouseDown}
       >
         <input
           ref="inputRef"
           type="radio"
-          class={`${mergedClsPrefix}-radio-button__radio-input`}
+          class={`${mergedClsPrefix}-radio-input`}
           value={this.value}
           name={this.mergedName}
           checked={this.renderSafeChecked}
@@ -40,8 +33,16 @@ export default defineComponent({
           onBlur={this.handleRadioInputBlur}
         />
         <div class={`${mergedClsPrefix}-radio-button__state-border`} />
-        <span ref="labelRef">{this.$slots}</span>
-      </div>
+        {resolveWrappedSlot(this.$slots.default, (children) => {
+          if (!children && !this.label)
+            return null
+          return (
+            <div ref="labelRef" class={`${mergedClsPrefix}-radio__label`}>
+              {children || this.label}
+            </div>
+          )
+        })}
+      </label>
     )
   }
 })

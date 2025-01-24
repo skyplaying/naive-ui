@@ -1,9 +1,9 @@
-import { defineComponent, PropType, h, computed, inject } from 'vue'
-import { ArrowDownIcon } from '../../../_internal/icons'
+import { computed, defineComponent, h, inject, type PropType } from 'vue'
 import { NBaseIcon } from '../../../_internal'
-import RenderSorter from './RenderSorter'
-import { dataTableInjectionKey, TableBaseColumn } from '../interface'
+import { ArrowDownIcon } from '../../../_internal/icons'
 import { useConfig } from '../../../_mixins'
+import { dataTableInjectionKey, type TableBaseColumn } from '../interface'
+import RenderSorter from './RenderSorter'
 
 export default defineComponent({
   name: 'SortIcon',
@@ -13,27 +13,31 @@ export default defineComponent({
       required: true
     }
   },
-  setup (props) {
-    const { NConfigProvider } = useConfig()
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  setup(props) {
+    const { mergedComponentPropsRef } = useConfig()
     const { mergedSortStateRef, mergedClsPrefixRef } = inject(
       dataTableInjectionKey
     )!
-    const sortStateRef = mergedSortStateRef
+    const sortStateRef = computed(() =>
+      mergedSortStateRef.value.find(
+        state => state.columnKey === props.column.key
+      )
+    )
+
     const activeRef = computed(() => {
-      const { value } = sortStateRef
-      if (value) return value.columnKey === props.column.key
-      return false
+      return sortStateRef.value !== undefined
     })
     const mergedSortOrderRef = computed(() => {
-      const { value } = sortStateRef
-      if (value) return activeRef.value ? value.order : false
+      const { value: sortState } = sortStateRef
+      if (sortState && activeRef.value) {
+        return sortState.order
+      }
       return false
     })
     const mergedRenderSorterRef = computed(() => {
       return (
-        NConfigProvider?.mergedComponentPropsRef.value?.DataTable
-          ?.renderSorter || props.column.renderSorter
+        mergedComponentPropsRef?.value?.DataTable?.renderSorter
+        || props.column.renderSorter
       )
     })
     return {
@@ -43,25 +47,28 @@ export default defineComponent({
       mergedRenderSorter: mergedRenderSorterRef
     }
   },
-  render () {
+  render() {
     const { mergedRenderSorter, mergedSortOrder, mergedClsPrefix } = this
+    const { renderSorterIcon } = this.column
     return mergedRenderSorter ? (
       <RenderSorter render={mergedRenderSorter} order={mergedSortOrder} />
     ) : (
       <span
         class={[
           `${mergedClsPrefix}-data-table-sorter`,
-          {
-            [`${mergedClsPrefix}-data-table-sorter--asc`]:
-              mergedSortOrder === 'ascend',
-            [`${mergedClsPrefix}-data-table-sorter--desc`]:
-              mergedSortOrder === 'descend'
-          }
+          mergedSortOrder === 'ascend'
+          && `${mergedClsPrefix}-data-table-sorter--asc`,
+          mergedSortOrder === 'descend'
+          && `${mergedClsPrefix}-data-table-sorter--desc`
         ]}
       >
-        <NBaseIcon clsPrefix={mergedClsPrefix}>
-          {{ default: () => <ArrowDownIcon /> }}
-        </NBaseIcon>
+        {renderSorterIcon ? (
+          renderSorterIcon({ order: mergedSortOrder })
+        ) : (
+          <NBaseIcon clsPrefix={mergedClsPrefix}>
+            {{ default: () => <ArrowDownIcon /> }}
+          </NBaseIcon>
+        )}
       </span>
     )
   }

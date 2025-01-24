@@ -1,12 +1,14 @@
-import fadeInScaleUp from '../../../_styles/transitions/fade-in-scale-up.cssr'
+import { fadeInScaleUpTransition } from '../../../_styles/transitions/fade-in-scale-up.cssr'
 import { c, cB } from '../../../_utils/cssr'
 
-// --menu-box-shadow
+// --n-menu-box-shadow
 export default c([
   cB('mention', 'width: 100%; z-index: auto; position: relative;'),
   cB('mention-menu', `
-    box-shadow: var(--menu-box-shadow);
+    box-shadow: var(--n-menu-box-shadow);
   `, [
-    fadeInScaleUp()
+    fadeInScaleUpTransition({
+      originalTransition: 'background-color .3s var(--n-bezier), box-shadow .3s var(--n-bezier)'
+    })
   ])
 ])

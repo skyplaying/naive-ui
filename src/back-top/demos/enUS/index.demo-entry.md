@@ -9,13 +9,15 @@ It helps you back to where you were. However, time never goes back.
 Scroll down to see demos work.
 
 ```demo
-basic
-visibility-height
-change-position
-target-container-selector
+basic.vue
+visibility-height.vue
+change-position.vue
+target-container-selector.vue
 ```
 
-## Props
+## API
+
+### BackTop Props
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |

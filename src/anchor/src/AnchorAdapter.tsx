@@ -1,26 +1,23 @@
-import { h, defineComponent, computed, ref, CSSProperties } from 'vue'
-import { NAffix } from '../../affix'
-import { affixProps, affixPropKeys } from '../../affix/src/Affix'
-import { useConfig, useTheme } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
 import type { ExtractPublicPropTypes } from '../../_utils'
-import { keep } from '../../_utils'
-import { anchorLight } from '../styles'
 import type { AnchorTheme } from '../styles'
-import style from './styles/index.cssr'
-import NBaseAnchor, { baseAnchorProps, baseAnchorPropKeys } from './BaseAnchor'
 import type { BaseAnchorInst } from './BaseAnchor'
+import { computed, type CSSProperties, defineComponent, h, ref } from 'vue'
+import { useConfig, useTheme, useThemeClass } from '../../_mixins'
+import { keep } from '../../_utils'
+import { NAffix } from '../../affix'
+import { affixPropKeys, affixProps } from '../../affix/src/Affix'
+import { anchorLight } from '../styles'
+import NBaseAnchor, { baseAnchorPropKeys, baseAnchorProps } from './BaseAnchor'
+import style from './styles/index.cssr'
 
 export interface AnchorInst {
   scrollTo: (href: string) => void
 }
 
-const anchorProps = {
+export const anchorProps = {
   ...(useTheme.props as ThemeProps<AnchorTheme>),
-  affix: {
-    type: Boolean,
-    default: false
-  },
+  affix: Boolean,
   ...affixProps,
   ...baseAnchorProps
 } as const
@@ -30,11 +27,11 @@ export type AnchorProps = ExtractPublicPropTypes<typeof anchorProps>
 export default defineComponent({
   name: 'Anchor',
   props: anchorProps,
-  setup (props, { slots }) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  setup(props, { slots }) {
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
     const themeRef = useTheme(
       'Anchor',
-      'Anchor',
+      '-anchor',
       style,
       anchorLight,
       props,
@@ -53,33 +50,44 @@ export default defineComponent({
           linkTextColorActive,
           linkFontSize,
           railWidth,
-          linkPadding
+          linkPadding,
+          borderRadius
         },
         common: { cubicBezierEaseInOut }
       } = themeRef.value
       return {
-        '--link-color': linkColor,
-        '--link-font-size': linkFontSize,
-        '--link-text-color': linkTextColor,
-        '--link-text-color-hover': linkTextColorHover,
-        '--link-text-color-active': linkTextColorActive,
-        '--link-text-color-pressed': linkTextColorPressed,
-        '--link-padding': linkPadding,
-        '--bezier': cubicBezierEaseInOut,
-        '--rail-color': railColor,
-        '--rail-color-active': railColorActive,
-        '--rail-width': railWidth
+        '--n-link-border-radius': borderRadius,
+        '--n-link-color': linkColor,
+        '--n-link-font-size': linkFontSize,
+        '--n-link-text-color': linkTextColor,
+        '--n-link-text-color-hover': linkTextColorHover,
+        '--n-link-text-color-active': linkTextColorActive,
+        '--n-link-text-color-pressed': linkTextColorPressed,
+        '--n-link-padding': linkPadding,
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-rail-color': railColor,
+        '--n-rail-color-active': railColorActive,
+        '--n-rail-width': railWidth
       }
     })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass('anchor', undefined, cssVarsRef, props)
+      : undefined
     return {
-      scrollTo (href: string) {
+      scrollTo(href: string) {
         anchorRef.value?.setActiveHref(href)
       },
       renderAnchor: () => {
+        themeClassHandle?.onRender()
         return (
           <NBaseAnchor
             ref={anchorRef}
-            style={cssVarsRef.value as CSSProperties}
+            style={
+              inlineThemeDisabled
+                ? undefined
+                : (cssVarsRef.value as CSSProperties)
+            }
+            class={themeClassHandle?.themeClass.value}
             {...keep(props, baseAnchorPropKeys)}
             mergedClsPrefix={mergedClsPrefixRef.value}
           >
@@ -89,7 +97,7 @@ export default defineComponent({
       }
     }
   },
-  render () {
+  render() {
     return !this.affix ? (
       this.renderAnchor()
     ) : (

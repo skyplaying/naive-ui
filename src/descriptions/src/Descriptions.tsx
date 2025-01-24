@@ -1,32 +1,37 @@
+import type { ThemeProps } from '../../_mixins'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import type { DescriptionsTheme } from '../styles'
+import { repeat } from 'seemly'
+import { useCompitable } from 'vooks'
 import {
   computed,
-  h,
+  type CSSProperties,
   defineComponent,
-  PropType,
-  VNode,
-  CSSProperties
+  h,
+  type PropType,
+  type SlotsType,
+  type VNode
 } from 'vue'
-import { useCompitable } from 'vooks'
-import { useConfig, useTheme } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
-import { warn, getSlot, getVNodeChildren, createKey } from '../../_utils'
-import type { ExtractPublicPropTypes } from '../../_utils'
+import { useConfig, useTheme, useThemeClass } from '../../_mixins'
+import {
+  createKey,
+  flatten,
+  getSlot,
+  getVNodeChildren,
+  warn
+} from '../../_utils'
 import { descriptionsLight } from '../styles'
-import type { DescriptionsTheme } from '../styles'
-import { isDescriptionsItem } from './utils'
 import style from './styles/index.cssr'
+import { isDescriptionsItem } from './utils'
 
-const descriptionProps = {
+export const descriptionsProps = {
   ...(useTheme.props as ThemeProps<DescriptionsTheme>),
   title: String,
   column: {
     type: Number,
     default: 3
   },
-  columns: {
-    type: Number,
-    default: undefined
-  },
+  columns: Number,
   labelPlacement: {
     type: String as PropType<'left' | 'top'>,
     default: 'top'
@@ -35,91 +40,124 @@ const descriptionProps = {
     type: String as PropType<'left' | 'right' | 'center'>,
     default: 'left'
   },
+  separator: {
+    type: String,
+    default: ':'
+  },
   size: {
     type: String as PropType<'small' | 'medium' | 'large'>,
     default: 'medium'
   },
-  bordered: {
-    type: Boolean,
-    default: false
-  }
+  bordered: Boolean,
+  labelClass: String,
+  labelStyle: [Object, String] as PropType<string | CSSProperties>,
+  contentClass: String,
+  contentStyle: [Object, String] as PropType<string | CSSProperties>
 } as const
 
-export type DescriptionProps = ExtractPublicPropTypes<typeof descriptionProps>
+export type DescriptionsProps = ExtractPublicPropTypes<typeof descriptionsProps>
+/** @deprecated You should use `DescriptionsProps` */
+export type DescriptionProps = DescriptionsProps
+
+export interface DescriptionsSlots {
+  default?: () => VNode[]
+  header?: () => VNode[]
+}
 
 export default defineComponent({
   name: 'Descriptions',
-  props: descriptionProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  props: descriptionsProps,
+  slots: Object as SlotsType<DescriptionsSlots>,
+  setup(props) {
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
     const themeRef = useTheme(
       'Descriptions',
-      'Descriptions',
+      '-descriptions',
       style,
       descriptionsLight,
       props,
       mergedClsPrefixRef
     )
+    const cssVarsRef = computed(() => {
+      const { size, bordered } = props
+      const {
+        common: { cubicBezierEaseInOut },
+        self: {
+          titleTextColor,
+          thColor,
+          thColorModal,
+          thColorPopover,
+          thTextColor,
+          thFontWeight,
+          tdTextColor,
+          tdColor,
+          tdColorModal,
+          tdColorPopover,
+          borderColor,
+          borderColorModal,
+          borderColorPopover,
+          borderRadius,
+          lineHeight,
+          [createKey('fontSize', size)]: fontSize,
+          [createKey(bordered ? 'thPaddingBordered' : 'thPadding', size)]:
+            thPadding,
+          [createKey(bordered ? 'tdPaddingBordered' : 'tdPadding', size)]:
+            tdPadding
+        }
+      } = themeRef.value
+      return {
+        '--n-title-text-color': titleTextColor,
+        '--n-th-padding': thPadding,
+        '--n-td-padding': tdPadding,
+        '--n-font-size': fontSize,
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-th-font-weight': thFontWeight,
+        '--n-line-height': lineHeight,
+        '--n-th-text-color': thTextColor,
+        '--n-td-text-color': tdTextColor,
+        '--n-th-color': thColor,
+        '--n-th-color-modal': thColorModal,
+        '--n-th-color-popover': thColorPopover,
+        '--n-td-color': tdColor,
+        '--n-td-color-modal': tdColorModal,
+        '--n-td-color-popover': tdColorPopover,
+        '--n-border-radius': borderRadius,
+        '--n-border-color': borderColor,
+        '--n-border-color-modal': borderColorModal,
+        '--n-border-color-popover': borderColorPopover
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'descriptions',
+          computed(() => {
+            let hash = ''
+            const { size, bordered } = props
+            if (bordered)
+              hash += 'a'
+            hash += size[0]
+            return hash
+          }),
+          cssVarsRef,
+          props
+        )
+      : undefined
     return {
       mergedClsPrefix: mergedClsPrefixRef,
-      cssVars: computed(() => {
-        const { size, bordered } = props
-        const {
-          common: { cubicBezierEaseInOut },
-          self: {
-            thColor,
-            thColorModal,
-            thColorPopover,
-            thTextColor,
-            thFontWeight,
-            tdTextColor,
-            tdColor,
-            tdColorModal,
-            tdColorPopover,
-            borderColor,
-            borderColorModal,
-            borderColorPopover,
-            borderRadius,
-            lineHeight,
-            [createKey('fontSize', size)]: fontSize,
-            [createKey(
-              bordered ? 'thPaddingBordered' : 'thPadding',
-              size
-            )]: thPadding,
-            [createKey(
-              bordered ? 'tdPaddingBordered' : 'tdPadding',
-              size
-            )]: tdPadding
-          }
-        } = themeRef.value
-        return {
-          '--th-padding': thPadding,
-          '--td-padding': tdPadding,
-          '--font-size': fontSize,
-          '--bezier': cubicBezierEaseInOut,
-          '--th-font-weight': thFontWeight,
-          '--line-height': lineHeight,
-          '--th-text-color': thTextColor,
-          '--td-text-color': tdTextColor,
-          '--th-color': thColor,
-          '--th-color-modal': thColorModal,
-          '--th-color-popover': thColorPopover,
-          '--td-color': tdColor,
-          '--td-color-modal': tdColorModal,
-          '--td-color-popover': tdColorPopover,
-          '--border-radius': borderRadius,
-          '--border-color': borderColor,
-          '--border-color-modal': borderColorModal,
-          '--border-color-popover': borderColorPopover
-        }
-      }),
-      compitableColumn: useCompitable(props, ['columns', 'column'])
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender,
+      compitableColumn: useCompitable(props, ['columns', 'column']),
+      inlineThemeDisabled
     }
   },
-  render () {
-    const children = getSlot(this, 'default', [])
+  render() {
+    const defaultSlots = this.$slots.default
+    const children = defaultSlots ? flatten(defaultSlots()) : []
     const memorizedLength = children.length
     const {
+      contentClass,
+      labelClass,
       compitableColumn,
       labelPlacement,
       labelAlign,
@@ -127,11 +165,14 @@ export default defineComponent({
       bordered,
       title,
       cssVars,
-      mergedClsPrefix
+      mergedClsPrefix,
+      separator,
+      onRender
     } = this
-    const filteredChildren: VNode[] = children.filter((child) =>
+    onRender?.()
+    const filteredChildren: VNode[] = children.filter(child =>
       isDescriptionsItem(child)
-    ) as VNode[]
+    )
     if (__DEV__ && memorizedLength !== filteredChildren.length) {
       warn(
         'descriptions',
@@ -159,27 +200,40 @@ export default defineComponent({
       const itemSpan = (props.span as number) || 1
       const memorizedSpan = state.span
       state.span += itemSpan
+      const labelStyle
+        = props.labelStyle || props['label-style'] || this.labelStyle
+      const contentStyle
+        = props.contentStyle || props['content-style'] || this.contentStyle
       if (labelPlacement === 'left') {
         if (bordered) {
           state.row.push(
             <th
-              class={`${mergedClsPrefix}-descriptions-table-header`}
+              class={[
+                `${mergedClsPrefix}-descriptions-table-header`,
+                labelClass
+              ]}
               colspan={1}
+              style={labelStyle}
             >
               {itemLabel}
             </th>,
             <td
-              class={`${mergedClsPrefix}-descriptions-table-content`}
+              class={[
+                `${mergedClsPrefix}-descriptions-table-content`,
+                contentClass
+              ]}
               colspan={
                 isLastIteration
                   ? (compitableColumn - memorizedSpan) * 2 + 1
                   : itemSpan * 2 - 1
               }
+              style={contentStyle}
             >
               {itemChildren}
             </td>
           )
-        } else {
+        }
+        else {
           state.row.push(
             <td
               class={`${mergedClsPrefix}-descriptions-table-content`}
@@ -190,39 +244,55 @@ export default defineComponent({
               }
             >
               <span
-                class={`${mergedClsPrefix}-descriptions-table-content__label`}
+                class={[
+                  `${mergedClsPrefix}-descriptions-table-content__label`,
+                  labelClass
+                ]}
+                style={labelStyle}
               >
                 {[
                   ...itemLabel,
-                  <span class={`${mergedClsPrefix}-descriptions-separator`}>
-                    :
-                  </span>
+                  separator && (
+                    <span class={`${mergedClsPrefix}-descriptions-separator`}>
+                      {separator}
+                    </span>
+                  )
                 ]}
               </span>
               <span
-                class={`${mergedClsPrefix}-descriptions-table-content__content`}
+                class={[
+                  `${mergedClsPrefix}-descriptions-table-content__content`,
+                  contentClass
+                ]}
+                style={contentStyle}
               >
                 {itemChildren}
               </span>
             </td>
           )
         }
-      } else {
+      }
+      else {
         const colspan = isLastIteration
           ? (compitableColumn - memorizedSpan) * 2
           : itemSpan * 2
         state.row.push(
           <th
-            class={`${mergedClsPrefix}-descriptions-table-header`}
+            class={[`${mergedClsPrefix}-descriptions-table-header`, labelClass]}
             colspan={colspan}
+            style={labelStyle}
           >
             {itemLabel}
           </th>
         )
         state.secondRow.push(
           <td
-            class={`${mergedClsPrefix}-descriptions-table-content`}
+            class={[
+              `${mergedClsPrefix}-descriptions-table-content`,
+              contentClass
+            ]}
             colspan={colspan}
+            style={contentStyle}
           >
             {itemChildren}
           </td>
@@ -243,14 +313,15 @@ export default defineComponent({
       }
       return state
     }, defaultState)
-    const rows = itemState.rows.map((row) => (
+    const rows = itemState.rows.map(row => (
       <tr class={`${mergedClsPrefix}-descriptions-table-row`}>{row}</tr>
     ))
     return (
       <div
-        style={cssVars as CSSProperties}
+        style={cssVars as any}
         class={[
           `${mergedClsPrefix}-descriptions`,
+          this.themeClass,
           `${mergedClsPrefix}-descriptions--${labelPlacement}-label-placement`,
           `${mergedClsPrefix}-descriptions--${labelAlign}-label-align`,
           `${mergedClsPrefix}-descriptions--${size}-size`,
@@ -264,7 +335,19 @@ export default defineComponent({
         ) : null}
         <div class={`${mergedClsPrefix}-descriptions-table-wrapper`}>
           <table class={`${mergedClsPrefix}-descriptions-table`}>
-            <tbody>{rows}</tbody>
+            <tbody>
+              {labelPlacement === 'top' && (
+                <tr
+                  class={`${mergedClsPrefix}-descriptions-table-row`}
+                  style={{
+                    visibility: 'collapse'
+                  }}
+                >
+                  {repeat(compitableColumn * 2, <td />)}
+                </tr>
+              )}
+              {rows}
+            </tbody>
           </table>
         </div>
       </div>

@@ -1,9 +1,9 @@
-import { commonLight } from '../../_styles/common'
+import type { Theme } from '../../_mixins'
 import type { ThemeCommonVars } from '../../_styles/common'
+import { commonLight } from '../../_styles/common'
 import commonVariables from './_common'
-import { Theme } from '../../_mixins'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     primaryColor,
     borderRadius,
@@ -13,14 +13,16 @@ export const self = (vars: ThemeCommonVars) => {
     textColor2,
     textColor1,
     dividerColor,
-    actionColor,
     fontWeightStrong,
-    closeColor,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
     closeColorHover,
     closeColorPressed,
     modalColor,
     boxShadow1,
-    popoverColor
+    popoverColor,
+    actionColor
   } = vars
   return {
     ...commonVariables,
@@ -29,14 +31,20 @@ export const self = (vars: ThemeCommonVars) => {
     colorModal: modalColor,
     colorPopover: popoverColor,
     colorTarget: primaryColor,
+    colorEmbedded: actionColor,
+    colorEmbeddedModal: actionColor,
+    colorEmbeddedPopover: actionColor,
     textColor: textColor2,
     titleTextColor: textColor1,
     borderColor: dividerColor,
-    actionColor: actionColor,
+    actionColor,
     titleFontWeight: fontWeightStrong,
-    closeColor: closeColor,
-    closeColorHover: closeColorHover,
-    closeColorPressed: closeColorPressed,
+    closeColorHover,
+    closeColorPressed,
+    closeBorderRadius: borderRadius,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
     fontSizeSmall: fontSize,
     fontSizeMedium: fontSize,
     fontSizeLarge: fontSize,

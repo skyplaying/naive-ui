@@ -1,34 +1,44 @@
+import { fadeInScaleUpTransition } from '../../../../_styles/transitions/fade-in-scale-up.cssr'
 import { c, cB, cE, cM, cNotM } from '../../../../_utils/cssr'
-import fadeInScaleUpTransition from '../../../../_styles/transitions/fade-in-scale-up.cssr'
 
-// --loading-color
-// --loading-size
+// --n-loading-color
+// --n-loading-size
+// --n-option-padding-right
 export default cB('base-select-menu', `
+  line-height: 1.5;
   outline: none;
   z-index: 0;
   position: relative;
-  border-radius: var(--border-radius);
+  border-radius: var(--n-border-radius);
   transition:
-    background-color .3s var(--bezier),
-    box-shadow .3s var(--bezier);
-  overflow: hidden;
-  background-color: var(--color);
+    background-color .3s var(--n-bezier),
+    box-shadow .3s var(--n-bezier);
+  background-color: var(--n-color);
 `, [
   cB('scrollbar', `
-    max-height: var(--height);
+    max-height: var(--n-height);
   `),
   cB('virtual-list', `
-    max-height: var(--height);
+    max-height: var(--n-height);
   `),
   cB('base-select-option', `
-    height: var(--option-height);
-    line-height: var(--option-height);
-    font-size: var(--option-font-size);
-  `),
+    min-height: var(--n-option-height);
+    font-size: var(--n-option-font-size);
+    display: flex;
+    align-items: center;
+  `, [
+    cE('content', `
+      z-index: 1;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    `)
+  ]),
   cB('base-select-group-header', `
-    height: var(--option-height);
-    line-height: var(--option-height);
+    min-height: var(--n-option-height);
     font-size: .93em;
+    display: flex;
+    align-items: center;
   `),
   cB('base-select-menu-option-wrapper', `
     position: relative;
@@ -41,78 +51,101 @@ export default cB('base-select-menu', `
     justify-content: center;
   `),
   cE('loading', `
-    color: var(--loading-color);
-    font-size: var(--loading-size);
+    color: var(--n-loading-color);
+    font-size: var(--n-loading-size);
+  `),
+  cE('header', `
+    padding: 8px var(--n-option-padding-left);
+    font-size: var(--n-option-font-size);
+    transition: 
+      color .3s var(--n-bezier),
+      border-color .3s var(--n-bezier);
+    border-bottom: 1px solid var(--n-action-divider-color);
+    color: var(--n-action-text-color);
   `),
   cE('action', `
-    padding: 8px var(--option-padding-left);
-    font-size: var(--option-font-size);
+    padding: 8px var(--n-option-padding-left);
+    font-size: var(--n-option-font-size);
     transition: 
-      color .3s var(--bezier);
-      border-color .3s var(--bezier);
-    border-top: 1px solid var(--action-divider-color);
-    color: var(--action-text-color);
+      color .3s var(--n-bezier),
+      border-color .3s var(--n-bezier);
+    border-top: 1px solid var(--n-action-divider-color);
+    color: var(--n-action-text-color);
   `),
   cB('base-select-group-header', `
     position: relative;
     cursor: default;
-    padding: var(--option-padding);
-    color: var(--group-header-text-color);
+    padding: var(--n-option-padding);
+    color: var(--n-group-header-text-color);
   `),
   cB('base-select-option', `
     cursor: pointer;
     position: relative;
-    padding: var(--option-padding);
-    white-space: nowrap;
+    padding: var(--n-option-padding);
     transition:
-      background-color .3s var(--bezier),
-      color .3s var(--bezier),
-      opacity .3s var(--bezier);
-    text-overflow: ellipsis;
-    overflow: hidden;
+      color .3s var(--n-bezier),
+      opacity .3s var(--n-bezier);
     box-sizing: border-box;
-    color: var(--option-text-color);
+    color: var(--n-option-text-color);
     opacity: 1;
   `, [
-    c('&:active', {
-      color: 'var(--option-text-color-pressed)'
-    }),
-    cM('grouped', {
-      paddingLeft: 'calc(var(--option-padding-left) * 1.5)'
-    }),
-    cM('selected', {
-      color: 'var(--option-text-color-active)'
-    }),
-    cM('disabled', {
-      cursor: 'not-allowed'
-    }, [
-      cNotM('selected', {
-        color: 'var(--option-text-color-disabled)'
-      }),
-      cM('selected', {
-        opacity: 'var(--option-opacity-disabled)'
-      })
-    ]),
-    cM('pending', {
-      backgroundColor: 'var(--option-color-pending)'
-    }),
-    cE('check', `
-      font-size: 14px;
+    cM('show-checkmark', `
+      padding-right: calc(var(--n-option-padding-right) + 20px);
+    `),
+    c('&::before', `
+      content: "";
       position: absolute;
-      right: 8px;
-      top: calc(var(--option-height) / 2 - 7px);
-      color: var(--option-check-color);
-      transition: color .3s var(--bezier);
+      left: 4px;
+      right: 4px;
+      top: 0;
+      bottom: 0;
+      border-radius: var(--n-border-radius);
+      transition: background-color .3s var(--n-bezier);
+    `),
+    c('&:active', `
+      color: var(--n-option-text-color-pressed);
+    `),
+    cM('grouped', `
+      padding-left: calc(var(--n-option-padding-left) * 1.5);
+    `),
+    cM('pending', [
+      c('&::before', `
+        background-color: var(--n-option-color-pending);
+      `)
+    ]),
+    cM('selected', `
+      color: var(--n-option-text-color-active);
+    `, [
+      c('&::before', `
+        background-color: var(--n-option-color-active);
+      `),
+      cM('pending', [
+        c('&::before', `
+          background-color: var(--n-option-color-active-pending);
+        `)
+      ])
+    ]),
+    cM('disabled', `
+      cursor: not-allowed;
+    `, [
+      cNotM('selected', `
+        color: var(--n-option-text-color-disabled);
+      `),
+      cM('selected', `
+        opacity: var(--n-option-opacity-disabled);
+      `)
+    ]),
+    cE('check', `
+      font-size: 16px;
+      position: absolute;
+      right: calc(var(--n-option-padding-right) - 4px);
+      top: calc(50% - 7px);
+      color: var(--n-option-check-color);
+      transition: color .3s var(--n-bezier);
     `, [
       fadeInScaleUpTransition({
         enterScale: '0.5'
       })
     ])
-  ]),
-  cM('multiple', [
-    cB('base-select-option', `
-      position: relative;
-      padding-right: 28px;
-    `)
   ])
 ])

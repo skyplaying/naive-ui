@@ -1,39 +1,67 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { ThemeProps } from '../../_mixins'
+import type { ExtractPublicPropTypes, MaybeArray } from '../../_utils'
+import type { Size as InputSize } from '../../input/src/interface'
+import type { SelectProps } from '../../select'
+import type { Size as SelectSize } from '../../select/src/interface'
+import type { PaginationTheme } from '../styles'
+import type {
+  PaginationInfo,
+  PaginationLabelInfo,
+  PaginationRenderLabel,
+  PaginationSizeOption,
+  RenderGoto,
+  RenderNext,
+  RenderPrefix,
+  RenderPrev,
+  RenderSuffix,
+  Size
+} from './interface'
+import type { PageItem } from './utils'
+import { useMergedState } from 'vooks'
 import {
+  computed,
+  type CSSProperties,
+  defineComponent,
+  Fragment,
   h,
   nextTick,
-  computed,
+  type PropType,
   ref,
+  type SlotsType,
   toRef,
-  defineComponent,
-  PropType,
-  CSSProperties,
+  type VNode,
+  type VNodeChild,
   watchEffect
 } from 'vue'
-import { useMergedState } from 'vooks'
-import { NSelect } from '../../select'
-import { InputInst, NInput } from '../../input'
 import { NBaseIcon } from '../../_internal'
 import {
-  FastForwardIcon,
-  FastBackwardIcon,
   BackwardIcon,
+  FastBackwardIcon,
+  FastForwardIcon,
   ForwardIcon,
   MoreIcon
 } from '../../_internal/icons'
-import { useConfig, useLocale, useTheme } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
-import { paginationLight, PaginationTheme } from '../styles'
-import { pageItems } from './utils'
-import type { PageItem } from './utils'
+import { useConfig, useLocale, useTheme, useThemeClass } from '../../_mixins'
+import { useRtl } from '../../_mixins/use-rtl'
+import {
+  call,
+  createKey,
+  resolveSlot,
+  smallerSize,
+  useAdjustedTo,
+  warn,
+  warnOnce
+} from '../../_utils'
+import { NInput } from '../../input'
+import { NPopselect } from '../../popselect'
+import { NSelect } from '../../select'
+import { paginationLight } from '../styles'
 import style from './styles/index.cssr'
-import { call, ExtractPublicPropTypes, MaybeArray, warn } from '../../_utils'
-import type { Size as InputSize } from '../../input/src/interface'
-import type { Size as SelectSize } from '../../select/src/interface'
-import { RenderPrefix, RenderSuffix } from './interface'
+import { createPageItemsInfo, getDefaultPageSize } from './utils'
 
-const paginationProps = {
+export const paginationProps = {
   ...(useTheme.props as ThemeProps<PaginationTheme>),
+  simple: Boolean,
   page: Number,
   defaultPage: {
     type: Number,
@@ -46,35 +74,52 @@ const paginationProps = {
     default: 1
   },
   showSizePicker: Boolean,
-  pageSize: Number as PropType<number>,
+  pageSize: Number,
   defaultPageSize: Number,
   pageSizes: {
-    type: Array as PropType<number[]>,
-    default: () => [10]
+    type: Array as PropType<Array<number | PaginationSizeOption>>,
+    default() {
+      return [10]
+    }
   },
   showQuickJumper: Boolean,
+  size: {
+    type: String as PropType<Size>,
+    default: 'medium'
+  },
   disabled: Boolean,
   pageSlot: {
     type: Number,
     default: 9
   },
+  selectProps: Object as PropType<SelectProps>,
+  prev: Function as PropType<RenderPrev>,
+  next: Function as PropType<RenderNext>,
+  goto: Function as PropType<RenderGoto>,
   prefix: Function as PropType<RenderPrefix>,
   suffix: Function as PropType<RenderSuffix>,
+  label: Function as PropType<PaginationRenderLabel>,
+  displayOrder: {
+    type: Array as PropType<Array<'pages' | 'size-picker' | 'quick-jumper'>>,
+    default: ['pages', 'size-picker', 'quick-jumper']
+  },
+  to: useAdjustedTo.propTo,
+  showQuickJumpDropdown: { type: Boolean, default: true },
   'onUpdate:page': [Function, Array] as PropType<
-  MaybeArray<(page: number) => void>
+    MaybeArray<(page: number) => void>
   >,
   onUpdatePage: [Function, Array] as PropType<
-  MaybeArray<(page: number) => void>
+    MaybeArray<(page: number) => void>
   >,
   'onUpdate:pageSize': [Function, Array] as PropType<
-  MaybeArray<(pageSize: number) => void>
+    MaybeArray<(pageSize: number) => void>
   >,
   onUpdatePageSize: [Function, Array] as PropType<
-  MaybeArray<(pageSize: number) => void>
+    MaybeArray<(pageSize: number) => void>
   >,
   /** @deprecated */
   onPageSizeChange: [Function, Array] as PropType<
-  MaybeArray<(pageSize: number) => void>
+    MaybeArray<(pageSize: number) => void>
   >,
   /** @deprecated */
   onChange: [Function, Array] as PropType<MaybeArray<(page: number) => void>>
@@ -82,24 +127,52 @@ const paginationProps = {
 
 export type PaginationProps = ExtractPublicPropTypes<typeof paginationProps>
 
+export interface PaginationSlots {
+  default?: () => VNode[]
+  goto?: () => VNode[]
+  label?: (props: PaginationLabelInfo) => VNode[]
+  next?: (props: PaginationInfo) => VNode
+  prev?: (props: PaginationInfo) => VNode
+  prefix?: (props: PaginationInfo) => VNode
+  suffix?: (props: PaginationInfo) => VNode
+}
+
 export default defineComponent({
   name: 'Pagination',
   props: paginationProps,
-  setup (props) {
+  slots: Object as SlotsType<PaginationSlots>,
+  setup(props) {
     if (__DEV__) {
       watchEffect(() => {
         if (props.pageCount !== undefined && props.itemCount !== undefined) {
           warn(
             'pagination',
-            "`page-count` and `item-count` should't be specified together. Only `item-count` will take effect."
+            '`page-count` and `item-count` should\'t be specified together. Only `item-count` will take effect.'
+          )
+        }
+        if (props.onPageSizeChange) {
+          warnOnce(
+            'pagination',
+            '`on-page-size-change` is deprecated, please use `on-update:page-size` instead.'
+          )
+        }
+        if (props.onChange) {
+          warnOnce(
+            'pagination',
+            '`on-change` is deprecated, please use `on-update:page` instead.'
           )
         }
       })
     }
-    const { NConfigProvider, mergedClsPrefixRef } = useConfig(props)
+    const {
+      mergedComponentPropsRef,
+      mergedClsPrefixRef,
+      inlineThemeDisabled,
+      mergedRtlRef
+    } = useConfig(props)
     const themeRef = useTheme(
       'Pagination',
-      'Pagination',
+      '-pagination',
       style,
       paginationLight,
       props,
@@ -107,12 +180,8 @@ export default defineComponent({
     )
     const { localeRef } = useLocale('Pagination')
     const selfRef = ref<HTMLElement | null>(null)
-    const jumperRef = ref<InputInst | null>(null)
-    const jumperValueRef = ref('')
     const uncontrolledPageRef = ref(props.defaultPage)
-    const uncontrolledPageSizeRef = ref(
-      props.defaultPageSize || props.pageSizes[0]
-    )
+    const uncontrolledPageSizeRef = ref(getDefaultPageSize(props))
     const mergedPageRef = useMergedState(
       toRef(props, 'page'),
       uncontrolledPageRef
@@ -125,75 +194,159 @@ export default defineComponent({
       // item count has high priority, for it can affect prefix slot rendering
       const { itemCount } = props
       if (itemCount !== undefined) {
-        return Math.ceil(itemCount / mergedPageSizeRef.value)
+        return Math.max(1, Math.ceil(itemCount / mergedPageSizeRef.value))
       }
       const { pageCount } = props
-      if (pageCount !== undefined) return pageCount
+      if (pageCount !== undefined)
+        return Math.max(pageCount, 1)
       return 1
     })
-    const showFastForwardRef = ref(false)
-    const showFastBackwardRef = ref(false)
+    const jumperValueRef = ref('')
+    watchEffect(() => {
+      void props.simple
+      jumperValueRef.value = String(mergedPageRef.value)
+    })
+
+    const fastForwardActiveRef = ref(false)
+    const fastBackwardActiveRef = ref(false)
+    const showFastForwardMenuRef = ref(false)
+    const showFastBackwardMenuRef = ref(false)
+
+    const handleFastForwardMouseenter = (): void => {
+      if (props.disabled)
+        return
+      fastForwardActiveRef.value = true
+      disableTransitionOneTick()
+    }
+    const handleFastForwardMouseleave = (): void => {
+      if (props.disabled)
+        return
+      fastForwardActiveRef.value = false
+      disableTransitionOneTick()
+    }
+    const handleFastBackwardMouseenter = (): void => {
+      fastBackwardActiveRef.value = true
+      disableTransitionOneTick()
+    }
+    const handleFastBackwardMouseleave = (): void => {
+      fastBackwardActiveRef.value = false
+      disableTransitionOneTick()
+    }
+    const handleMenuSelect = (value: number): void => {
+      doUpdatePage(value)
+    }
+
+    const pageItemsInfo = computed(() =>
+      createPageItemsInfo(
+        mergedPageRef.value,
+        mergedPageCountRef.value,
+        props.pageSlot,
+        props.showQuickJumpDropdown
+      )
+    )
+
+    watchEffect(() => {
+      if (!pageItemsInfo.value.hasFastBackward) {
+        fastBackwardActiveRef.value = false
+        showFastBackwardMenuRef.value = false
+      }
+      else if (!pageItemsInfo.value.hasFastForward) {
+        fastForwardActiveRef.value = false
+        showFastForwardMenuRef.value = false
+      }
+    })
 
     const pageSizeOptionsRef = computed(() => {
       const suffix = localeRef.value.selectionSuffix
-      return props.pageSizes.map((size) => ({
-        label: `${size} / ${suffix}`,
-        value: size
-      }))
+      return props.pageSizes.map((size) => {
+        if (typeof size === 'number') {
+          return {
+            label: `${size} / ${suffix}`,
+            value: size
+          }
+        }
+        else {
+          return size
+        }
+      })
     })
     const inputSizeRef = computed<InputSize>(() => {
       return (
-        NConfigProvider?.mergedComponentPropsRef.value?.Pagination?.inputSize ||
-        'small'
+        mergedComponentPropsRef?.value?.Pagination?.inputSize
+        || smallerSize(props.size)
       )
     })
     const selectSizeRef = computed<SelectSize>(() => {
       return (
-        NConfigProvider?.mergedComponentPropsRef.value?.Pagination
-          ?.selectSize || 'small'
+        mergedComponentPropsRef?.value?.Pagination?.selectSize
+        || smallerSize(props.size)
       )
     })
     const startIndexRef = computed(() => {
       return (mergedPageRef.value - 1) * mergedPageSizeRef.value
     })
     const endIndexRef = computed(() => {
-      const endIndex = mergedPageRef.value * mergedPageSizeRef.value
+      const endIndex = mergedPageRef.value * mergedPageSizeRef.value - 1
       const { itemCount } = props
       if (itemCount !== undefined) {
-        return endIndex > itemCount ? itemCount : endIndex
+        return endIndex > itemCount - 1 ? itemCount - 1 : endIndex
       }
       return endIndex
     })
+    const mergedItemCountRef = computed(() => {
+      const { itemCount } = props
+      if (itemCount !== undefined)
+        return itemCount
+      return (props.pageCount || 1) * mergedPageSizeRef.value
+    })
+    const rtlEnabledRef = useRtl('Pagination', mergedRtlRef, mergedClsPrefixRef)
 
-    const disableTransitionOneTick = (): void => {
+    function disableTransitionOneTick(): void {
       void nextTick(() => {
         const { value: selfEl } = selfRef
-        if (!selfEl) return
+        if (!selfEl)
+          return
         selfEl.classList.add('transition-disabled')
         void selfRef.value?.offsetWidth
         selfEl.classList.remove('transition-disabled')
       })
     }
-    function doUpdatePage (page: number): void {
-      if (page === mergedPageRef.value) return
-      const { 'onUpdate:page': _onUpdatePage, onUpdatePage, onChange } = props
-      if (_onUpdatePage) call(_onUpdatePage, page)
-      if (onUpdatePage) call(onUpdatePage, page)
+    function doUpdatePage(page: number): void {
+      if (page === mergedPageRef.value)
+        return
+      const {
+        'onUpdate:page': _onUpdatePage,
+        onUpdatePage,
+        onChange,
+        simple
+      } = props
+      if (_onUpdatePage)
+        call(_onUpdatePage, page)
+      if (onUpdatePage)
+        call(onUpdatePage, page)
       // deprecated
-      if (onChange) call(onChange, page)
+      if (onChange)
+        call(onChange, page)
       uncontrolledPageRef.value = page
+      if (simple) {
+        jumperValueRef.value = String(page)
+      }
     }
-    function doUpdatePageSize (pageSize: number): void {
-      if (pageSize === mergedPageSizeRef.value) return
+    function doUpdatePageSize(pageSize: number): void {
+      if (pageSize === mergedPageSizeRef.value)
+        return
       const {
         'onUpdate:pageSize': _onUpdatePageSize,
         onUpdatePageSize,
         onPageSizeChange
       } = props
-      if (_onUpdatePageSize) call(_onUpdatePageSize, pageSize)
-      if (onUpdatePageSize) call(onUpdatePageSize, pageSize)
+      if (_onUpdatePageSize)
+        call(_onUpdatePageSize, pageSize)
+      if (onUpdatePageSize)
+        call(onUpdatePageSize, pageSize)
       // deprecated
-      if (onPageSizeChange) call(onPageSizeChange, pageSize)
+      if (onPageSizeChange)
+        call(onPageSizeChange, pageSize)
       uncontrolledPageSizeRef.value = pageSize
       // update new page when overflows.
       // we may have different update strategy, but i've no time to impl it
@@ -201,107 +354,189 @@ export default defineComponent({
         doUpdatePage(mergedPageCountRef.value)
       }
     }
-    function forward (): void {
-      if (props.disabled) return
+    function forward(): void {
+      if (props.disabled)
+        return
       const page = Math.min(mergedPageRef.value + 1, mergedPageCountRef.value)
       doUpdatePage(page)
     }
-    function backward (): void {
-      if (props.disabled) return
+    function backward(): void {
+      if (props.disabled)
+        return
       const page = Math.max(mergedPageRef.value - 1, 1)
       doUpdatePage(page)
     }
-    function fastForward (): void {
-      if (props.disabled) return
+    function fastForward(): void {
+      if (props.disabled)
+        return
       const page = Math.min(
-        mergedPageRef.value + (props.pageSlot - 4),
+        pageItemsInfo.value.fastForwardTo,
         mergedPageCountRef.value
       )
       doUpdatePage(page)
     }
-    function fastBackward (): void {
-      if (props.disabled) return
-      const page = Math.max(mergedPageRef.value - (props.pageSlot - 4), 1)
+    function fastBackward(): void {
+      if (props.disabled)
+        return
+      const page = Math.max(pageItemsInfo.value.fastBackwardTo, 1)
       doUpdatePage(page)
     }
-    function handleSizePickerChange (value: number): void {
+    function handleSizePickerChange(value: number): void {
       doUpdatePageSize(value)
     }
-    function handleQuickJumperKeyUp (e: KeyboardEvent): void {
-      if (e.code === 'Enter') {
-        const page = parseInt(jumperValueRef.value)
-        if (
-          !Number.isNaN(page) &&
-          page >= 1 &&
-          page <= mergedPageCountRef.value
-        ) {
-          doUpdatePage(page)
-          jumperValueRef.value = ''
-          jumperRef.value?.blur()
-        }
+    function doQuickJump(): void {
+      const page = Number.parseInt(jumperValueRef.value)
+      if (Number.isNaN(page))
+        return
+      doUpdatePage(Math.max(1, Math.min(page, mergedPageCountRef.value)))
+      if (!props.simple) {
+        jumperValueRef.value = ''
       }
     }
-    function handlePageItemClick (pageItem: PageItem): void {
-      if (props.disabled) return
+    function handleQuickJumperChange(): void {
+      doQuickJump()
+    }
+    function handlePageItemClick(pageItem: PageItem): void {
+      if (props.disabled)
+        return
       switch (pageItem.type) {
         case 'page':
           doUpdatePage(pageItem.label)
           break
-        case 'fastBackward':
+        case 'fast-backward':
           fastBackward()
           break
-        case 'fastForward':
+        case 'fast-forward':
           fastForward()
           break
       }
     }
-    function handlePageItemMouseEnter (pageItem: PageItem): void {
-      if (props.disabled) return
-      switch (pageItem.type) {
-        case 'fastBackward':
-          showFastBackwardRef.value = true
-          break
-        case 'fastForward':
-          showFastForwardRef.value = true
-          break
-        default:
-          return
-      }
-      disableTransitionOneTick()
-    }
-    function handlePageItemMouseLeave (pageItem: PageItem): void {
-      if (props.disabled) return
-      switch (pageItem.type) {
-        case 'fastBackward':
-          showFastBackwardRef.value = false
-          break
-        case 'fastForward':
-          showFastForwardRef.value = false
-          break
-        default:
-          return
-      }
-      disableTransitionOneTick()
-    }
-    function handleJumperInput (value: string): void {
-      jumperValueRef.value = value
+    function handleJumperInput(value: string): void {
+      jumperValueRef.value = value.replace(/\D+/g, '')
     }
     watchEffect(() => {
       void mergedPageRef.value
       void mergedPageSizeRef.value
       disableTransitionOneTick()
     })
+    const cssVarsRef = computed(() => {
+      const { size } = props
+      const {
+        self: {
+          buttonBorder,
+          buttonBorderHover,
+          buttonBorderPressed,
+          buttonIconColor,
+          buttonIconColorHover,
+          buttonIconColorPressed,
+          itemTextColor,
+          itemTextColorHover,
+          itemTextColorPressed,
+          itemTextColorActive,
+          itemTextColorDisabled,
+          itemColor,
+          itemColorHover,
+          itemColorPressed,
+          itemColorActive,
+          itemColorActiveHover,
+          itemColorDisabled,
+          itemBorder,
+          itemBorderHover,
+          itemBorderPressed,
+          itemBorderActive,
+          itemBorderDisabled,
+          itemBorderRadius,
+          jumperTextColor,
+          jumperTextColorDisabled,
+          buttonColor,
+          buttonColorHover,
+          buttonColorPressed,
+          [createKey('itemPadding', size)]: itemPadding,
+          [createKey('itemMargin', size)]: itemMargin,
+          [createKey('inputWidth', size)]: inputWidth,
+          [createKey('selectWidth', size)]: selectWidth,
+          [createKey('inputMargin', size)]: inputMargin,
+          [createKey('selectMargin', size)]: selectMargin,
+          [createKey('jumperFontSize', size)]: jumperFontSize,
+          [createKey('prefixMargin', size)]: prefixMargin,
+          [createKey('suffixMargin', size)]: suffixMargin,
+          [createKey('itemSize', size)]: itemSize,
+          [createKey('buttonIconSize', size)]: buttonIconSize,
+          [createKey('itemFontSize', size)]: itemFontSize,
+          [`${createKey('itemMargin', size)}Rtl` as const]: itemMarginRtl,
+          [`${createKey('inputMargin', size)}Rtl` as const]: inputMarginRtl
+        },
+        common: { cubicBezierEaseInOut }
+      } = themeRef.value
+      return {
+        '--n-prefix-margin': prefixMargin,
+        '--n-suffix-margin': suffixMargin,
+        '--n-item-font-size': itemFontSize,
+        '--n-select-width': selectWidth,
+        '--n-select-margin': selectMargin,
+        '--n-input-width': inputWidth,
+        '--n-input-margin': inputMargin,
+        '--n-input-margin-rtl': inputMarginRtl,
+        '--n-item-size': itemSize,
+        '--n-item-text-color': itemTextColor,
+        '--n-item-text-color-disabled': itemTextColorDisabled,
+        '--n-item-text-color-hover': itemTextColorHover,
+        '--n-item-text-color-active': itemTextColorActive,
+        '--n-item-text-color-pressed': itemTextColorPressed,
+        '--n-item-color': itemColor,
+        '--n-item-color-hover': itemColorHover,
+        '--n-item-color-disabled': itemColorDisabled,
+        '--n-item-color-active': itemColorActive,
+        '--n-item-color-active-hover': itemColorActiveHover,
+        '--n-item-color-pressed': itemColorPressed,
+        '--n-item-border': itemBorder,
+        '--n-item-border-hover': itemBorderHover,
+        '--n-item-border-disabled': itemBorderDisabled,
+        '--n-item-border-active': itemBorderActive,
+        '--n-item-border-pressed': itemBorderPressed,
+        '--n-item-padding': itemPadding,
+        '--n-item-border-radius': itemBorderRadius,
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-jumper-font-size': jumperFontSize,
+        '--n-jumper-text-color': jumperTextColor,
+        '--n-jumper-text-color-disabled': jumperTextColorDisabled,
+        '--n-item-margin': itemMargin,
+        '--n-item-margin-rtl': itemMarginRtl,
+        '--n-button-icon-size': buttonIconSize,
+        '--n-button-icon-color': buttonIconColor,
+        '--n-button-icon-color-hover': buttonIconColorHover,
+        '--n-button-icon-color-pressed': buttonIconColorPressed,
+        '--n-button-color-hover': buttonColorHover,
+        '--n-button-color': buttonColor,
+        '--n-button-color-pressed': buttonColorPressed,
+        '--n-button-border': buttonBorder,
+        '--n-button-border-hover': buttonBorderHover,
+        '--n-button-border-pressed': buttonBorderPressed
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'pagination',
+          computed(() => {
+            let hash = ''
+            const { size } = props
+            hash += size[0]
+            return hash
+          }),
+          cssVarsRef,
+          props
+        )
+      : undefined
     return {
+      rtlEnabled: rtlEnabledRef,
       mergedClsPrefix: mergedClsPrefixRef,
       locale: localeRef,
       selfRef,
-      jumperRef,
       mergedPage: mergedPageRef,
-      showFastBackward: showFastBackwardRef,
-      showFastForward: showFastForwardRef,
-      pageItems: computed(() =>
-        pageItems(mergedPageRef.value, mergedPageCountRef.value, props.pageSlot)
-      ),
+      pageItems: computed(() => {
+        return pageItemsInfo.value.items
+      }),
+      mergedItemCount: mergedItemCountRef,
       jumperValue: jumperValueRef,
       pageSizeOptions: pageSizeOptionsRef,
       mergedPageSize: mergedPageSizeRef,
@@ -311,101 +546,27 @@ export default defineComponent({
       mergedPageCount: mergedPageCountRef,
       startIndex: startIndexRef,
       endIndex: endIndexRef,
+      showFastForwardMenu: showFastForwardMenuRef,
+      showFastBackwardMenu: showFastBackwardMenuRef,
+      fastForwardActive: fastForwardActiveRef,
+      fastBackwardActive: fastBackwardActiveRef,
+      handleMenuSelect,
+      handleFastForwardMouseenter,
+      handleFastForwardMouseleave,
+      handleFastBackwardMouseenter,
+      handleFastBackwardMouseleave,
       handleJumperInput,
       handleBackwardClick: backward,
       handleForwardClick: forward,
       handlePageItemClick,
       handleSizePickerChange,
-      handleQuickJumperKeyUp,
-      handlePageItemMouseEnter,
-      handlePageItemMouseLeave,
-      cssVars: computed(() => {
-        const {
-          self: {
-            itemSize,
-            itemPadding,
-            itemMargin,
-            inputWidth,
-            selectWidth,
-            inputMargin,
-            selectMargin,
-            buttonBorder,
-            buttonBorderHover,
-            buttonBorderPressed,
-            buttonIconColor,
-            buttonIconColorHover,
-            buttonIconColorPressed,
-            buttonIconSize,
-            itemTextColor,
-            itemTextColorHover,
-            itemTextColorPressed,
-            itemTextColorActive,
-            itemTextColorDisabled,
-            itemColor,
-            itemColorHover,
-            itemColorPressed,
-            itemColorActive,
-            itemColorActiveHover,
-            itemColorDisabled,
-            itemBorder,
-            itemBorderHover,
-            itemBorderPressed,
-            itemBorderActive,
-            itemBorderDisabled,
-            itemBorderRadius,
-            itemFontSize,
-            jumperFontSize,
-            jumperTextColor,
-            jumperTextColorDisabled,
-            prefixMargin,
-            suffixMargin
-          },
-          common: { cubicBezierEaseInOut }
-        } = themeRef.value
-        return {
-          '--prefix-margin': prefixMargin,
-          '--suffix-margin': suffixMargin,
-          '--item-font-size': itemFontSize,
-          '--select-width': selectWidth,
-          '--select-margin': selectMargin,
-          '--input-width': inputWidth,
-          '--input-margin': inputMargin,
-          '--item-size': itemSize,
-          '--item-text-color': itemTextColor,
-          '--item-text-color-disabled': itemTextColorDisabled,
-          '--item-text-color-hover': itemTextColorHover,
-          '--item-text-color-active': itemTextColorActive,
-          '--item-text-color-pressed': itemTextColorPressed,
-          '--item-color': itemColor,
-          '--item-color-hover': itemColorHover,
-          '--item-color-disabled': itemColorDisabled,
-          '--item-color-active': itemColorActive,
-          '--item-color-active-hover': itemColorActiveHover,
-          '--item-color-pressed': itemColorPressed,
-          '--item-border': itemBorder,
-          '--item-border-hover': itemBorderHover,
-          '--item-border-disabled': itemBorderDisabled,
-          '--item-border-active': itemBorderActive,
-          '--item-border-pressed': itemBorderPressed,
-          '--item-padding': itemPadding,
-          '--item-border-radius': itemBorderRadius,
-          '--bezier': cubicBezierEaseInOut,
-          '--jumper-font-size': jumperFontSize,
-          '--jumper-text-color': jumperTextColor,
-          '--jumper-text-color-disabled': jumperTextColorDisabled,
-          '--item-margin': itemMargin,
-          '--button-icon-size': buttonIconSize,
-          '--button-icon-color': buttonIconColor,
-          '--button-icon-color-hover': buttonIconColorHover,
-          '--button-icon-color-pressed': buttonIconColorPressed,
-          '--button-border': buttonBorder,
-          '--button-border-hover': buttonBorderHover,
-          '--button-border-pressed': buttonBorderPressed
-        }
-      })
+      handleQuickJumperChange,
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     // it's ok to expand all prop here since no slots' deps
     const {
       $slots,
@@ -415,8 +576,6 @@ export default defineComponent({
       mergedPage,
       mergedPageCount,
       pageItems,
-      showFastBackward,
-      showFastForward,
       showSizePicker,
       showQuickJumper,
       mergedTheme,
@@ -426,145 +585,379 @@ export default defineComponent({
       mergedPageSize,
       pageSizeOptions,
       jumperValue,
+      simple,
+      prev,
+      next,
       prefix,
       suffix,
+      label,
+      goto,
       handleJumperInput,
       handleSizePickerChange,
       handleBackwardClick,
       handlePageItemClick,
-      handlePageItemMouseEnter,
-      handlePageItemMouseLeave,
       handleForwardClick,
-      handleQuickJumperKeyUp
+      handleQuickJumperChange,
+      onRender
     } = this
+    onRender?.()
+    const renderPrefix = prefix || $slots.prefix
+    const renderSuffix = suffix || $slots.suffix
+    const renderPrev = prev || $slots.prev
+    const renderNext = next || $slots.next
+    const renderLabel = label || $slots.label
     return (
       <div
         ref="selfRef"
         class={[
           `${mergedClsPrefix}-pagination`,
-          disabled && `${mergedClsPrefix}-pagination--disabled`
+          this.themeClass,
+          this.rtlEnabled && `${mergedClsPrefix}-pagination--rtl`,
+          disabled && `${mergedClsPrefix}-pagination--disabled`,
+          simple && `${mergedClsPrefix}-pagination--simple`
         ]}
         style={cssVars as CSSProperties}
       >
-        {prefix || $slots.prefix ? (
+        {renderPrefix ? (
           <div class={`${mergedClsPrefix}-pagination-prefix`}>
-            {($slots.prefix
-              ? ($slots.prefix as unknown as RenderPrefix)
-              : prefix!)({
+            {renderPrefix({
               page: mergedPage,
               pageSize: mergedPageSize,
               pageCount: mergedPageCount,
               startIndex: this.startIndex,
-              endIndex: this.endIndex
+              endIndex: this.endIndex,
+              itemCount: this.mergedItemCount
             })}
           </div>
         ) : null}
-        <div
-          class={[
-            `${mergedClsPrefix}-pagination-item ${mergedClsPrefix}-pagination-item--button`,
-            (mergedPage <= 1 || mergedPage > mergedPageCount || disabled) &&
-              `${mergedClsPrefix}-pagination-item--disabled`
-          ]}
-          onClick={handleBackwardClick}
-        >
-          <NBaseIcon clsPrefix={mergedClsPrefix}>
-            {{ default: () => <BackwardIcon /> }}
-          </NBaseIcon>
-        </div>
-        {pageItems.map((pageItem, index) => {
-          return (
-            <div
-              key={index}
-              class={[
-                `${mergedClsPrefix}-pagination-item`,
-                {
-                  [`${mergedClsPrefix}-pagination-item--active`]:
-                    pageItem.active,
-                  [`${mergedClsPrefix}-pagination-item--disabled`]: disabled
-                }
-              ]}
-              onClick={() => handlePageItemClick(pageItem)}
-              onMouseenter={() => handlePageItemMouseEnter(pageItem)}
-              onMouseleave={() => handlePageItemMouseLeave(pageItem)}
-            >
-              {pageItem.type === 'page' ? pageItem.label : null}
-              {pageItem.type === 'fastBackward' ? (
-                showFastBackward ? (
-                  <NBaseIcon clsPrefix={mergedClsPrefix}>
-                    {{ default: () => <FastBackwardIcon /> }}
-                  </NBaseIcon>
-                ) : (
-                  <NBaseIcon clsPrefix={mergedClsPrefix}>
-                    {{ default: () => <MoreIcon /> }}
-                  </NBaseIcon>
-                )
-              ) : null}
-              {pageItem.type === 'fastForward' ? (
-                showFastForward ? (
-                  <NBaseIcon clsPrefix={mergedClsPrefix}>
-                    {{ default: () => <FastForwardIcon /> }}
-                  </NBaseIcon>
-                ) : (
-                  <NBaseIcon clsPrefix={mergedClsPrefix}>
-                    {{ default: () => <MoreIcon /> }}
-                  </NBaseIcon>
-                )
-              ) : null}
-            </div>
-          )
-        })}
-        <div
-          class={[
-            `${mergedClsPrefix}-pagination-item ${mergedClsPrefix}-pagination-item--button`,
-            {
-              [`${mergedClsPrefix}-pagination-item--disabled`]:
-                mergedPage < 1 || mergedPage >= mergedPageCount || disabled
+        {this.displayOrder.map((part) => {
+          switch (part) {
+            case 'pages':
+              return (
+                <Fragment>
+                  <div
+                    class={[
+                      `${mergedClsPrefix}-pagination-item`,
+                      !renderPrev
+                      && `${mergedClsPrefix}-pagination-item--button`,
+                      (mergedPage <= 1
+                        || mergedPage > mergedPageCount
+                        || disabled)
+                      && `${mergedClsPrefix}-pagination-item--disabled`
+                    ]}
+                    onClick={handleBackwardClick}
+                  >
+                    {renderPrev ? (
+                      renderPrev({
+                        page: mergedPage,
+                        pageSize: mergedPageSize,
+                        pageCount: mergedPageCount,
+                        startIndex: this.startIndex,
+                        endIndex: this.endIndex,
+                        itemCount: this.mergedItemCount
+                      })
+                    ) : (
+                      <NBaseIcon clsPrefix={mergedClsPrefix}>
+                        {{
+                          default: () =>
+                            this.rtlEnabled ? <ForwardIcon /> : <BackwardIcon />
+                        }}
+                      </NBaseIcon>
+                    )}
+                  </div>
+                  {simple ? (
+                    <Fragment>
+                      <div class={`${mergedClsPrefix}-pagination-quick-jumper`}>
+                        <NInput
+                          value={jumperValue}
+                          onUpdateValue={handleJumperInput}
+                          size={inputSize}
+                          placeholder=""
+                          disabled={disabled}
+                          theme={mergedTheme.peers.Input}
+                          themeOverrides={mergedTheme.peerOverrides.Input}
+                          onChange={handleQuickJumperChange}
+                        />
+                      </div>
+                      &nbsp;/
+                      {' '}
+                      {mergedPageCount}
+                    </Fragment>
+                  ) : (
+                    pageItems.map((pageItem, index) => {
+                      let contentNode: VNodeChild
+                      let onMouseenter: undefined | (() => void)
+                      let onMouseleave: undefined | (() => void)
+                      const { type } = pageItem
+                      switch (type) {
+                        case 'page':
+                          // eslint-disable-next-line no-case-declarations
+                          const pageNode = pageItem.label
+                          if (renderLabel) {
+                            contentNode = renderLabel({
+                              type: 'page',
+                              node: pageNode,
+                              active: pageItem.active
+                            })
+                          }
+                          else {
+                            contentNode = pageNode
+                          }
+                          break
+                        case 'fast-forward':
+                          // eslint-disable-next-line no-case-declarations
+                          const fastForwardNode = this.fastForwardActive ? (
+                            <NBaseIcon clsPrefix={mergedClsPrefix}>
+                              {{
+                                default: () =>
+                                  this.rtlEnabled ? (
+                                    <FastBackwardIcon />
+                                  ) : (
+                                    <FastForwardIcon />
+                                  )
+                              }}
+                            </NBaseIcon>
+                          ) : (
+                            <NBaseIcon clsPrefix={mergedClsPrefix}>
+                              {{ default: () => <MoreIcon /> }}
+                            </NBaseIcon>
+                          )
+                          if (renderLabel) {
+                            contentNode = renderLabel({
+                              type: 'fast-forward',
+                              node: fastForwardNode,
+                              active:
+                                this.fastForwardActive
+                                || this.showFastForwardMenu
+                            })
+                          }
+                          else {
+                            contentNode = fastForwardNode
+                          }
+                          onMouseenter = this.handleFastForwardMouseenter
+                          onMouseleave = this.handleFastForwardMouseleave
+                          break
+                        case 'fast-backward':
+                          // eslint-disable-next-line no-case-declarations
+                          const fastBackwardNode = this.fastBackwardActive ? (
+                            <NBaseIcon clsPrefix={mergedClsPrefix}>
+                              {{
+                                default: () =>
+                                  this.rtlEnabled ? (
+                                    <FastForwardIcon />
+                                  ) : (
+                                    <FastBackwardIcon />
+                                  )
+                              }}
+                            </NBaseIcon>
+                          ) : (
+                            <NBaseIcon clsPrefix={mergedClsPrefix}>
+                              {{ default: () => <MoreIcon /> }}
+                            </NBaseIcon>
+                          )
+                          if (renderLabel) {
+                            contentNode = renderLabel({
+                              type: 'fast-backward',
+                              node: fastBackwardNode,
+                              active:
+                                this.fastBackwardActive
+                                || this.showFastBackwardMenu
+                            })
+                          }
+                          else {
+                            contentNode = fastBackwardNode
+                          }
+                          onMouseenter = this.handleFastBackwardMouseenter
+                          onMouseleave = this.handleFastBackwardMouseleave
+                          break
+                      }
+                      const itemNode = (
+                        <div
+                          key={index}
+                          class={[
+                            `${mergedClsPrefix}-pagination-item`,
+                            pageItem.active
+                            && `${mergedClsPrefix}-pagination-item--active`,
+                            type !== 'page'
+                            && ((type === 'fast-backward'
+                              && this.showFastBackwardMenu)
+                            || (type === 'fast-forward'
+                              && this.showFastForwardMenu))
+                            && `${mergedClsPrefix}-pagination-item--hover`,
+                            disabled
+                            && `${mergedClsPrefix}-pagination-item--disabled`,
+                            type === 'page'
+                            && `${mergedClsPrefix}-pagination-item--clickable`
+                          ]}
+                          onClick={() => {
+                            handlePageItemClick(pageItem)
+                          }}
+                          onMouseenter={onMouseenter}
+                          onMouseleave={onMouseleave}
+                        >
+                          {contentNode}
+                        </div>
+                      )
+                      if (
+                        type === 'page'
+                        && !pageItem.mayBeFastBackward
+                        && !pageItem.mayBeFastForward
+                      ) {
+                        return itemNode
+                      }
+                      else {
+                        const key
+                          = pageItem.type === 'page'
+                            ? pageItem.mayBeFastBackward
+                              ? 'fast-backward'
+                              : 'fast-forward'
+                            : pageItem.type
+                        if (pageItem.type !== 'page' && !pageItem.options) {
+                          return itemNode
+                        }
+                        return (
+                          <NPopselect
+                            to={this.to}
+                            key={key}
+                            disabled={disabled}
+                            trigger="hover"
+                            virtualScroll
+                            style={{ width: '60px' }}
+                            theme={mergedTheme.peers.Popselect}
+                            themeOverrides={mergedTheme.peerOverrides.Popselect}
+                            builtinThemeOverrides={{
+                              peers: {
+                                InternalSelectMenu: {
+                                  height: 'calc(var(--n-option-height) * 4.6)'
+                                }
+                              }
+                            }}
+                            nodeProps={() => ({
+                              style: {
+                                justifyContent: 'center'
+                              }
+                            })}
+                            show={
+                              type === 'page'
+                                ? false
+                                : type === 'fast-backward'
+                                  ? this.showFastBackwardMenu
+                                  : this.showFastForwardMenu
+                            }
+                            onUpdateShow={(value) => {
+                              if (type === 'page')
+                                return
+                              if (value) {
+                                if (type === 'fast-backward') {
+                                  this.showFastBackwardMenu = value
+                                }
+                                else {
+                                  this.showFastForwardMenu = value
+                                }
+                              }
+                              else {
+                                this.showFastBackwardMenu = false
+                                this.showFastForwardMenu = false
+                              }
+                            }}
+                            options={
+                              pageItem.type !== 'page' && pageItem.options
+                                ? pageItem.options
+                                : []
+                            }
+                            onUpdateValue={this.handleMenuSelect}
+                            scrollable
+                            showCheckmark={false}
+                          >
+                            {{ default: () => itemNode }}
+                          </NPopselect>
+                        )
+                      }
+                    })
+                  )}
+                  <div
+                    class={[
+                      `${mergedClsPrefix}-pagination-item`,
+                      !renderNext
+                      && `${mergedClsPrefix}-pagination-item--button`,
+                      {
+                        [`${mergedClsPrefix}-pagination-item--disabled`]:
+                          mergedPage < 1
+                          || mergedPage >= mergedPageCount
+                          || disabled
+                      }
+                    ]}
+                    onClick={handleForwardClick}
+                  >
+                    {renderNext ? (
+                      renderNext({
+                        page: mergedPage,
+                        pageSize: mergedPageSize,
+                        pageCount: mergedPageCount,
+                        itemCount: this.mergedItemCount,
+                        startIndex: this.startIndex,
+                        endIndex: this.endIndex
+                      })
+                    ) : (
+                      <NBaseIcon clsPrefix={mergedClsPrefix}>
+                        {{
+                          default: () =>
+                            this.rtlEnabled ? <BackwardIcon /> : <ForwardIcon />
+                        }}
+                      </NBaseIcon>
+                    )}
+                  </div>
+                </Fragment>
+              )
+            case 'size-picker': {
+              return !simple && showSizePicker ? (
+                <NSelect
+                  consistentMenuWidth={false}
+                  placeholder=""
+                  showCheckmark={false}
+                  to={this.to}
+                  {...this.selectProps}
+                  size={selectSize}
+                  options={pageSizeOptions}
+                  value={mergedPageSize}
+                  disabled={disabled}
+                  theme={mergedTheme.peers.Select}
+                  themeOverrides={mergedTheme.peerOverrides.Select}
+                  onUpdateValue={handleSizePickerChange}
+                />
+              ) : null
             }
-          ]}
-          onClick={handleForwardClick}
-        >
-          <NBaseIcon clsPrefix={mergedClsPrefix}>
-            {{ default: () => <ForwardIcon /> }}
-          </NBaseIcon>
-        </div>
-        {showSizePicker ? (
-          <NSelect
-            size={selectSize}
-            placeholder=""
-            options={pageSizeOptions}
-            value={mergedPageSize}
-            disabled={disabled}
-            theme={mergedTheme.peers.Select}
-            themeOverrides={mergedTheme.peerOverrides.Select}
-            onUpdateValue={handleSizePickerChange as any}
-          />
-        ) : null}
-        {showQuickJumper ? (
-          <div class={`${mergedClsPrefix}-pagination-quick-jumper`}>
-            {locale.goto}
-            <NInput
-              ref="jumperRef"
-              value={jumperValue}
-              onUpdateValue={handleJumperInput}
-              size={inputSize}
-              placeholder=""
-              disabled={disabled}
-              theme={mergedTheme.peers.Input}
-              themeOverrides={mergedTheme.peerOverrides.Input}
-              onKeyup={handleQuickJumperKeyUp}
-            />
-          </div>
-        ) : null}
-        {suffix || $slots.suffix ? (
+            case 'quick-jumper':
+              return !simple && showQuickJumper ? (
+                <div class={`${mergedClsPrefix}-pagination-quick-jumper`}>
+                  {goto
+                    ? goto()
+                    : resolveSlot(this.$slots.goto, () => [locale.goto])}
+                  <NInput
+                    value={jumperValue}
+                    onUpdateValue={handleJumperInput}
+                    size={inputSize}
+                    placeholder=""
+                    disabled={disabled}
+                    theme={mergedTheme.peers.Input}
+                    themeOverrides={mergedTheme.peerOverrides.Input}
+                    onChange={handleQuickJumperChange}
+                  />
+                </div>
+              ) : null
+            default:
+              return null
+          }
+        })}
+        {renderSuffix ? (
           <div class={`${mergedClsPrefix}-pagination-suffix`}>
-            {($slots.suffix
-              ? ($slots.suffix as unknown as RenderSuffix)
-              : suffix!)({
+            {renderSuffix({
               page: mergedPage,
               pageSize: mergedPageSize,
               pageCount: mergedPageCount,
               startIndex: this.startIndex,
-              endIndex: this.endIndex
+              endIndex: this.endIndex,
+              itemCount: this.mergedItemCount
             })}
           </div>
         ) : null}

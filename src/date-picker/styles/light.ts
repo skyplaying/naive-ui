@@ -1,13 +1,14 @@
-import { inputLight } from '../../input/styles'
-import { commonLight } from '../../_styles/common'
 import type { ThemeCommonVars } from '../../_styles/common'
+import { changeColor } from 'seemly'
+import { scrollbarLight } from '../../_internal/scrollbar/styles'
+import { createTheme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
 import { buttonLight } from '../../button/styles'
+import { inputLight } from '../../input/styles'
 import { timePickerLight } from '../../time-picker/styles'
 import commonVars from './_common'
-import { changeColor } from 'seemly'
-import { createTheme } from '../../_mixins'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     hoverColor,
     fontSize,
@@ -42,6 +43,7 @@ export const self = (vars: ThemeCommonVars) => {
     panelTextColor: textColor2,
     arrowColor: iconColor,
     calendarTitleTextColor: textColor1,
+    calendarTitleColorHover: hoverColor,
     calendarDaysTextColor: textColor2,
     panelHeaderDividerColor: dividerColor,
     calendarDaysDividerColor: dividerColor,
@@ -50,6 +52,7 @@ export const self = (vars: ThemeCommonVars) => {
     panelBoxShadow: boxShadow2,
     panelBorderRadius: borderRadius,
     calendarTitleFontWeight: fontWeightStrong,
+    scrollItemBorderRadius: borderRadius,
     iconColor,
     iconColorDisabled
   }
@@ -63,7 +66,8 @@ const datePickerLight = createTheme({
   peers: {
     Input: inputLight,
     Button: buttonLight,
-    TimePicker: timePickerLight
+    TimePicker: timePickerLight,
+    Scrollbar: scrollbarLight
   },
   self
 })

@@ -7,32 +7,34 @@ It is hard to make it looks elegant. However things should be done.
 ## Demos
 
 ```demo
-basic
-border
+basic.vue
+hoverable.vue
+border.vue
 ```
 
-## Props
+## API
 
 ### List Props
 
-| Name     | Type      | Default | Description |
-| -------- | --------- | ------- | ----------- |
-| bordered | `boolean` | `false` |             |
-
-## Slots
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| bordered | `boolean` | `false` | Whether to show the border. |  |
+| clickable | `boolean` | `false` | Whether item has clickable style. | 2.32.2 |
+| hoverable | `boolean` | `false` | Whether item has hoverable style. | 2.32.2 |
+| show-divider | `boolean` | `true` | Whether to show item divider. | 2.32.2 |
 
 ### List Slots
 
-| Name    | Parameters | Description |
-| ------- | ---------- | ----------- |
-| default | `()`       |             |
-| footer  | `()`       |             |
-| header  | `()`       |             |
+| Name    | Parameters | Description                           |
+| ------- | ---------- | ------------------------------------- |
+| default | `()`       | The contents of the list.             |
+| footer  | `()`       | Content at the bottom of the list.    |
+| header  | `()`       | The contents of the head of the list. |
 
-### List Item Slots
+### ListItem Slots
 
-| Name    | Parameters | Description |
-| ------- | ---------- | ----------- |
-| default | `()`       |             |
-| prefix  | `()`       |             |
-| suffix  | `()`       |             |
+| Name    | Parameters | Description                         |
+| ------- | ---------- | ----------------------------------- |
+| default | `()`       | The contents of the list item.      |
+| prefix  | `()`       | The first content of the list item. |
+| suffix  | `()`       | The end of the list item.           |

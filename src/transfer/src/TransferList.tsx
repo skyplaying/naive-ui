@@ -1,17 +1,8 @@
-import {
-  h,
-  defineComponent,
-  ref,
-  inject,
-  PropType,
-  TransitionGroup,
-  Transition,
-  Fragment
-} from 'vue'
-import { VirtualList, VirtualListInst } from 'vueuc'
+import { defineComponent, h, inject, type PropType, ref } from 'vue'
+import { VirtualList, type VirtualListInst } from 'vueuc'
+import { NScrollbar, type ScrollbarInst } from '../../_internal'
 import { NEmpty } from '../../empty'
-import { NScrollbar, ScrollbarInst } from '../../scrollbar'
-import { Option, transferInjectionKey } from './interface'
+import { type Option, transferInjectionKey } from './interface'
 import NTransferListItem from './TransferListItem'
 
 export default defineComponent({
@@ -33,36 +24,26 @@ export default defineComponent({
       type: Boolean,
       required: true
     },
-    isMounted: {
-      type: Boolean,
-      required: true
-    },
-    isInputing: {
-      type: Boolean,
-      required: true
-    },
-    source: {
-      type: Boolean,
-      default: false
-    }
+    source: Boolean
   },
-  setup () {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  setup() {
     const { mergedThemeRef, mergedClsPrefixRef } = inject(transferInjectionKey)!
     const scrollerInstRef = ref<ScrollbarInst | null>(null)
     const vlInstRef = ref<VirtualListInst | null>(null)
-    function syncVLScroller (): void {
+    function syncVLScroller(): void {
       scrollerInstRef.value?.sync()
     }
-    function scrollContainer (): HTMLElement | null {
+    function scrollContainer(): HTMLElement | null {
       const { value } = vlInstRef
-      if (!value) return null
+      if (!value)
+        return null
       const { listElRef } = value
       return listElRef
     }
-    function scrollContent (): HTMLElement | null {
+    function scrollContent(): HTMLElement | null {
       const { value } = vlInstRef
-      if (!value) return null
+      if (!value)
+        return null
       const { itemsElRef } = value
       return itemsElRef
     }
@@ -76,98 +57,72 @@ export default defineComponent({
       scrollContent
     }
   },
-  render () {
-    const { mergedTheme, mergedClsPrefix, syncVLScroller } = this
+  render() {
+    const { mergedTheme, options } = this
+    if (options.length === 0) {
+      return (
+        <NEmpty
+          theme={mergedTheme.peers.Empty}
+          themeOverrides={mergedTheme.peerOverrides.Empty}
+        />
+      )
+    }
+    const { mergedClsPrefix, virtualScroll, source, disabled, syncVLScroller }
+      = this
     return (
-      <>
-        {this.virtualScroll ? (
-          <NScrollbar
-            ref="scrollerInstRef"
-            theme={mergedTheme.peers.Scrollbar}
-            themeOverrides={mergedTheme.peerOverrides.Scrollbar}
-            container={this.scrollContainer}
-            content={this.scrollContent}
-          >
-            {{
-              default: () => (
-                <VirtualList
-                  ref="srcVlInstRef"
-                  style={{ height: '100%' }}
-                  class={`${mergedClsPrefix}-transfer-list-content`}
-                  items={this.options}
-                  itemSize={this.itemSize}
-                  showScrollbar={false}
-                  onResize={syncVLScroller}
-                  onScroll={syncVLScroller}
-                  keyField="value"
-                >
-                  {{
-                    default: ({ item }: { item: Option }) => {
-                      const { source, disabled } = this
-                      return (
-                        <NTransferListItem
-                          source={source}
-                          key={item.value}
-                          value={item.value}
-                          disabled={item.disabled || disabled}
-                          label={item.label}
-                        />
-                      )
-                    }
-                  }}
-                </VirtualList>
-              )
-            }}
-          </NScrollbar>
-        ) : (
-          <NScrollbar
-            theme={mergedTheme.peers.Scrollbar}
-            themeOverrides={mergedTheme.peerOverrides.Scrollbar}
-          >
-            {{
-              default: () => (
-                <div class={`${mergedClsPrefix}-transfer-list-content`}>
-                  <TransitionGroup
-                    name="item"
-                    appear={this.isMounted}
-                    css={!this.isInputing}
-                  >
-                    {{
-                      default: () => {
-                        const { source, disabled } = this
-                        return this.options.map((option) => (
-                          <NTransferListItem
-                            source={source}
-                            key={option.value}
-                            value={option.value}
-                            disabled={option.disabled || disabled}
-                            label={option.label}
-                          />
-                        ))
-                      }
-                    }}
-                  </TransitionGroup>
-                </div>
-              )
-            }}
-          </NScrollbar>
-        )}
-        <Transition
-          name="fade-in-transition"
-          appear={this.isMounted}
-          css={!this.isInputing}
-        >
-          {{
-            default: () =>
-              this.options.length ? null : (
-                <NEmpty
-                  theme={mergedTheme.peers.Empty}
-                  themeOverrides={mergedTheme.peerOverrides.Empty}
-                />
-              )
-          }}
-        </Transition>
-      </>
+      <NScrollbar
+        ref="scrollerInstRef"
+        theme={mergedTheme.peers.Scrollbar}
+        themeOverrides={mergedTheme.peerOverrides.Scrollbar}
+        container={virtualScroll ? this.scrollContainer : undefined}
+        content={virtualScroll ? this.scrollContent : undefined}
+      >
+        {{
+          default: () =>
+            virtualScroll ? (
+              <VirtualList
+                ref="vlInstRef"
+                style={{ height: '100%' }}
+                class={`${mergedClsPrefix}-transfer-list-content`}
+                items={this.options}
+                itemSize={this.itemSize}
+                showScrollbar={false}
+                onResize={syncVLScroller}
+                onScroll={syncVLScroller}
+                keyField="value"
+              >
+                {{
+                  default: ({ item }: { item: Option }) => {
+                    const { source, disabled } = this
+                    return (
+                      <NTransferListItem
+                        source={source}
+                        key={item.value}
+                        value={item.value}
+                        disabled={item.disabled || disabled}
+                        label={item.label}
+                        option={item}
+                      />
+                    )
+                  }
+                }}
+              </VirtualList>
+            ) : (
+              <div class={`${mergedClsPrefix}-transfer-list-content`}>
+                {options.map(option => (
+                  <NTransferListItem
+                    source={source}
+                    key={option.value}
+                    value={option.value}
+                    disabled={option.disabled || disabled}
+                    label={option.label}
+                    option={option}
+                  />
+                ))}
+              </div>
+            )
+        }}
+      </NScrollbar>
     )
   }
 })

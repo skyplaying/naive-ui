@@ -1,11 +1,11 @@
-import sizeVariables from './_common'
-import { commonDark } from '../../_styles/common'
 import type { SliderTheme } from './light'
+import { commonDark } from '../../_styles/common'
+import sizeVariables from './_common'
 
 const sliderDark: SliderTheme = {
   name: 'Slider',
   common: commonDark,
-  self (vars) {
+  self(vars) {
     const boxShadow = '0 2px 8px 0 rgba(0, 0, 0, 0.12)'
     const {
       railColor,
@@ -15,15 +15,18 @@ const sliderDark: SliderTheme = {
       textColor2,
       cardColor,
       borderRadius,
-      fontSize
+      fontSize,
+      opacityDisabled
     } = vars
     return {
       ...sizeVariables,
       fontSize,
-      railColor: railColor,
+      markFontSize: fontSize,
+      railColor,
       railColorHover: railColor,
       fillColor: primaryColorSuppl,
       fillColorHover: primaryColorSuppl,
+      opacityDisabled,
       handleColor: '#FFF',
       dotColor: cardColor,
       dotColorModal: modalColor,

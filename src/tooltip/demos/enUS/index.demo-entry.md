@@ -5,18 +5,20 @@ It walks like a popover, quacks like a popover but looks a bit different from po
 ## Demos
 
 ```demo
-basic
-trigger
-event
-placement
-body-style
-arrow
+basic.vue
+trigger.vue
+event.vue
+placement.vue
+body-style.vue
+arrow.vue
 ```
 
-## Props
+## API
 
-See [Popover Props](popover#Props)
+### Tooltip Props
 
-## Slots
+See [Popover Props](popover#Popover-Props)
 
-See [Popover Slots](popover#Slots)
+### Tooltip Slots
+
+See [Popover Slots](popover#Popover-Slots)

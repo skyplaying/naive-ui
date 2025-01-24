@@ -1,6 +1,6 @@
 # Provide Theme
 
-Use `n-config-provider` to set the theme of all its descedant components.
+Use `n-config-provider` to set the theme of all its descendant components.
 
 ```html
 <n-config-provider :theme="theme">
@@ -14,15 +14,15 @@ Use `n-config-provider` to set the theme of all its descedant components.
 ```
 
 ```js
-import { ref } from 'vue'
 import { darkTheme } from 'naive-ui'
+import { defineComponent, ref } from 'vue'
 
-export default {
-  setup () {
+export default defineComponent({
+  setup() {
     return {
       darkTheme,
       theme: ref(null)
     }
   }
-}
+})
 ```

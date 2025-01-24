@@ -1,4 +1,4 @@
-import { h, defineComponent, inject, PropType } from 'vue'
+import { defineComponent, h, inject, type PropType } from 'vue'
 import { NInput } from '../../input'
 import { dynamicInputInjectionKey } from './interface'
 
@@ -13,27 +13,30 @@ export default defineComponent({
       type: String,
       default: ''
     },
+    disabled: Boolean,
     parentPath: String,
     path: String,
-    // eslint-disable-next-line vue/prop-name-casing
     onUpdateValue: {
       type: Function as PropType<(value: string) => void>,
       required: true
     }
   },
-  setup () {
-    const {
-      mergedThemeRef,
-      placeholderRef
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    } = inject(dynamicInputInjectionKey)!
+  setup() {
+    const { mergedThemeRef, placeholderRef } = inject(dynamicInputInjectionKey)!
     return {
       mergedTheme: mergedThemeRef,
       placeholder: placeholderRef
     }
   },
-  render () {
-    const { mergedTheme, placeholder, value, clsPrefix, onUpdateValue } = this
+  render() {
+    const {
+      mergedTheme,
+      placeholder,
+      value,
+      clsPrefix,
+      onUpdateValue,
+      disabled
+    } = this
     return (
       <div class={`${clsPrefix}-dynamic-input-preset-input`}>
         <NInput
@@ -42,6 +45,7 @@ export default defineComponent({
           value={value}
           placeholder={placeholder}
           onUpdateValue={onUpdateValue}
+          disabled={disabled}
         />
       </div>
     )

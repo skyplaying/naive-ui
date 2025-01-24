@@ -1,11 +1,25 @@
-import { h, defineComponent, toRef } from 'vue'
+import type { ExtractPublicPropTypes } from '../../../_utils'
+import { defineComponent, h, toRef } from 'vue'
 import { useStyle } from '../../../_mixins'
 import NIconSwitchTransition from '../../icon-switch-transition'
 import style from './styles/index.cssr'
 
 const duration = '1.6s'
 
-// The loading svg dom comes from https://codepen.io/FezVrasta/pen/oXrgdR
+const exposedLoadingProps = {
+  strokeWidth: {
+    type: Number,
+    default: 28
+  },
+  stroke: {
+    type: String,
+    default: undefined
+  }
+}
+
+export type BaseLoadingExposedProps = ExtractPublicPropTypes<
+  typeof exposedLoadingProps
+>
 
 export default defineComponent({
   name: 'BaseLoading',
@@ -13,6 +27,10 @@ export default defineComponent({
     clsPrefix: {
       type: String,
       required: true
+    },
+    show: {
+      type: Boolean,
+      default: true
     },
     scale: {
       type: Number,
@@ -22,23 +40,12 @@ export default defineComponent({
       type: Number,
       default: 100
     },
-    strokeWidth: {
-      type: Number,
-      default: 28
-    },
-    stroke: {
-      type: String,
-      default: undefined
-    },
-    show: {
-      type: Boolean,
-      default: true
-    }
+    ...exposedLoadingProps
   },
-  setup (props) {
-    useStyle('BaseLoading', style, toRef(props, 'clsPrefix'))
+  setup(props) {
+    useStyle('-base-loading', style, toRef(props, 'clsPrefix'))
   },
-  render () {
+  render() {
     const { clsPrefix, radius, strokeWidth, stroke, scale } = this
     const scaledRadius = radius / scale
     return (
@@ -47,55 +54,63 @@ export default defineComponent({
           {{
             default: () =>
               this.show ? (
-                <svg
-                  class={`${clsPrefix}-base-loading__icon`}
-                  viewBox={`0 0 ${2 * scaledRadius} ${2 * scaledRadius}`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{ color: stroke }}
+                <div
+                  key="icon"
+                  class={`${clsPrefix}-base-loading__transition-wrapper`}
                 >
-                  <g>
-                    <animateTransform
-                      attributeName="transform"
-                      type="rotate"
-                      values={`0 ${scaledRadius} ${scaledRadius};270 ${scaledRadius} ${scaledRadius}`}
-                      begin="0s"
-                      dur={duration}
-                      fill="freeze"
-                      repeatCount="indefinite"
-                    />
-                    <circle
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width={strokeWidth}
-                      stroke-linecap="round"
-                      cx={scaledRadius}
-                      cy={scaledRadius}
-                      r={radius - strokeWidth / 2}
-                      stroke-dasharray={5.67 * radius}
-                      stroke-dashoffset={18.48 * radius}
+                  <div class={`${clsPrefix}-base-loading__container`}>
+                    <svg
+                      class={`${clsPrefix}-base-loading__icon`}
+                      viewBox={`0 0 ${2 * scaledRadius} ${2 * scaledRadius}`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{ color: stroke }}
                     >
-                      <animateTransform
-                        attributeName="transform"
-                        type="rotate"
-                        values={`0 ${scaledRadius} ${scaledRadius};135 ${scaledRadius} ${scaledRadius};450 ${scaledRadius} ${scaledRadius}`}
-                        begin="0s"
-                        dur={duration}
-                        fill="freeze"
-                        repeatCount="indefinite"
-                      />
-                      <animate
-                        attributeName="stroke-dashoffset"
-                        values={`${5.67 * radius};${1.42 * radius};${
-                          5.67 * radius
-                        }`}
-                        begin="0s"
-                        dur={duration}
-                        fill="freeze"
-                        repeatCount="indefinite"
-                      />
-                    </circle>
-                  </g>
-                </svg>
+                      <g>
+                        <animateTransform
+                          attributeName="transform"
+                          type="rotate"
+                          values={`0 ${scaledRadius} ${scaledRadius};270 ${scaledRadius} ${scaledRadius}`}
+                          begin="0s"
+                          dur={duration}
+                          fill="freeze"
+                          repeatCount="indefinite"
+                        />
+                        <circle
+                          class={`${clsPrefix}-base-loading__icon`}
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width={strokeWidth}
+                          stroke-linecap="round"
+                          cx={scaledRadius}
+                          cy={scaledRadius}
+                          r={radius - strokeWidth / 2}
+                          stroke-dasharray={5.67 * radius}
+                          stroke-dashoffset={18.48 * radius}
+                        >
+                          <animateTransform
+                            attributeName="transform"
+                            type="rotate"
+                            values={`0 ${scaledRadius} ${scaledRadius};135 ${scaledRadius} ${scaledRadius};450 ${scaledRadius} ${scaledRadius}`}
+                            begin="0s"
+                            dur={duration}
+                            fill="freeze"
+                            repeatCount="indefinite"
+                          />
+                          <animate
+                            attributeName="stroke-dashoffset"
+                            values={`${5.67 * radius};${1.42 * radius};${
+                              5.67 * radius
+                            }`}
+                            begin="0s"
+                            dur={duration}
+                            fill="freeze"
+                            repeatCount="indefinite"
+                          />
+                        </circle>
+                      </g>
+                    </svg>
+                  </div>
+                </div>
               ) : (
                 <div
                   key="placeholder"

@@ -1,19 +1,25 @@
+import type { BuiltInGlobalTheme } from './interface'
+import { scrollbarLight } from '../_internal/scrollbar/styles'
 // The file is for internal usage, do not export it, since all the components
 // have default light theme.
 import { commonLight } from '../_styles/common'
 import { alertLight } from '../alert/styles'
 import { anchorLight } from '../anchor/styles'
 import { autoCompleteLight } from '../auto-complete/styles'
+import { avatarGroupLight } from '../avatar-group/styles'
 import { avatarLight } from '../avatar/styles'
 import { backTopLight } from '../back-top/styles'
 import { badgeLight } from '../badge/styles'
 import { breadcrumbLight } from '../breadcrumb/styles'
+import { buttonGroupLight } from '../button-group/styles'
 import { buttonLight } from '../button/styles'
 import { calendarLight } from '../calendar/styles'
 import { cardLight } from '../card/styles'
+import { carouselLight } from '../carousel/styles'
 import { cascaderLight } from '../cascader/styles'
 import { checkboxLight } from '../checkbox/styles'
 import { codeLight } from '../code/styles'
+import { collapseTransitionLight } from '../collapse-transition/styles'
 import { collapseLight } from '../collapse/styles'
 import { colorPickerLight } from '../color-picker/styles'
 import { dataTableLight } from '../data-table/styles'
@@ -28,18 +34,26 @@ import { dynamicTagsLight } from '../dynamic-tags/styles'
 import { elementLight } from '../element/styles'
 import { ellipsisLight } from '../ellipsis/styles'
 import { emptyLight } from '../empty/styles'
+import { equationLight } from '../equation/styles'
+import { flexLight } from '../flex/styles'
+import { floatButtonGroupLight } from '../float-button-group/styles'
+import { floatButtonLight } from '../float-button/styles'
 import { formLight } from '../form/styles'
 import { gradientTextLight } from '../gradient-text/styles'
+import { iconWrapperLight } from '../icon-wrapper/styles'
 import { iconLight } from '../icon/styles'
 import { imageLight } from '../image/styles'
-import { inputLight } from '../input/styles'
 import { inputNumberLight } from '../input-number/styles'
+import { inputLight } from '../input/styles'
 import { layoutLight } from '../layout/styles'
+import { rowLight } from '../legacy-grid/styles'
+import { legacyTransferLight } from '../legacy-transfer/styles'
 import { listLight } from '../list/styles'
 import { loadingBarLight } from '../loading-bar/styles'
 import { logLight } from '../log/styles'
-import { menuLight } from '../menu/styles'
+import { marqueeLight } from '../marquee/styles'
 import { mentionLight } from '../mention/styles'
+import { menuLight } from '../menu/styles'
 import { messageLight } from '../message/styles'
 import { modalLight } from '../modal/styles'
 import { notificationLight } from '../notification/styles'
@@ -49,15 +63,16 @@ import { popconfirmLight } from '../popconfirm/styles'
 import { popoverLight } from '../popover/styles'
 import { popselectLight } from '../popselect/styles'
 import { progressLight } from '../progress/styles'
+import { qrcodeLight } from '../qr-code/styles'
 import { radioLight } from '../radio/styles'
 import { rateLight } from '../rate/styles'
 import { resultLight } from '../result/styles'
-import { scrollbarLight } from '../scrollbar/styles'
 import { selectLight } from '../select/styles'
 import { skeletonLight } from '../skeleton/styles'
 import { sliderLight } from '../slider/styles'
 import { spaceLight } from '../space/styles'
 import { spinLight } from '../spin/styles'
+import { splitLight } from '../split/styles'
 import { statisticLight } from '../statistic/styles'
 import { stepsLight } from '../steps/styles'
 import { switchLight } from '../switch/styles'
@@ -69,28 +84,33 @@ import { timePickerLight } from '../time-picker/styles'
 import { timelineLight } from '../timeline/styles'
 import { tooltipLight } from '../tooltip/styles'
 import { transferLight } from '../transfer/styles'
-import { typographyLight } from '../typography/styles'
-import { treeLight } from '../tree/styles'
 import { treeSelectLight } from '../tree-select/styles'
+import { treeLight } from '../tree/styles'
+import { typographyLight } from '../typography/styles'
 import { uploadLight } from '../upload/styles'
-import type { BuiltInGlobalTheme } from './interface'
+import { watermarkLight } from '../watermark/styles'
 
 export const lightTheme: BuiltInGlobalTheme = {
+  name: 'light',
   common: commonLight,
   Alert: alertLight,
   Anchor: anchorLight,
   AutoComplete: autoCompleteLight,
   Avatar: avatarLight,
+  AvatarGroup: avatarGroupLight,
   BackTop: backTopLight,
   Badge: badgeLight,
   Breadcrumb: breadcrumbLight,
   Button: buttonLight,
+  ButtonGroup: buttonGroupLight,
   Calendar: calendarLight,
   Card: cardLight,
+  Carousel: carouselLight,
   Cascader: cascaderLight,
   Checkbox: checkboxLight,
   Code: codeLight,
   Collapse: collapseLight,
+  CollapseTransition: collapseTransitionLight,
   ColorPicker: colorPickerLight,
   DataTable: dataTableLight,
   DatePicker: datePickerLight,
@@ -103,14 +123,18 @@ export const lightTheme: BuiltInGlobalTheme = {
   DynamicTags: dynamicTagsLight,
   Element: elementLight,
   Empty: emptyLight,
+  Equation: equationLight,
   Ellipsis: ellipsisLight,
+  Flex: flexLight,
   Form: formLight,
   GradientText: gradientTextLight,
   Icon: iconLight,
+  IconWrapper: iconWrapperLight,
   Image: imageLight,
   Input: inputLight,
   InputNumber: inputNumberLight,
   Layout: layoutLight,
+  LegacyTransfer: legacyTransferLight,
   List: listLight,
   LoadingBar: loadingBarLight,
   Log: logLight,
@@ -125,8 +149,10 @@ export const lightTheme: BuiltInGlobalTheme = {
   Popover: popoverLight,
   Popselect: popselectLight,
   Progress: progressLight,
+  QrCode: qrcodeLight,
   Radio: radioLight,
   Rate: rateLight,
+  Row: rowLight,
   Result: resultLight,
   Scrollbar: scrollbarLight,
   Skeleton: skeletonLight,
@@ -148,5 +174,10 @@ export const lightTheme: BuiltInGlobalTheme = {
   Tree: treeLight,
   TreeSelect: treeSelectLight,
   Typography: typographyLight,
-  Upload: uploadLight
+  Upload: uploadLight,
+  Watermark: watermarkLight,
+  Split: splitLight,
+  FloatButton: floatButtonLight,
+  FloatButtonGroup: floatButtonGroupLight,
+  Marquee: marqueeLight
 }

@@ -2,7 +2,7 @@
 
 # 在 SFC 中使用
 
-你可以选择直接引入或全局安装在 Vue App 中。
+如果你想使用单文件组件风格（SFC - Single File Component），可以选择直接引入或全局安装在 Vue App 中。
 
 ## 直接引入（推荐）
 
@@ -16,13 +16,14 @@
 </template>
 
 <script>
+  import { defineComponent } from 'vue'
   import { NButton } from 'naive-ui'
 
-  export default {
+  export default defineComponent({
     components: {
       NButton
     }
-  }
+  })
 </script>
 ```
 
@@ -44,9 +45,11 @@
 
 失去 tree-shaking 的能力，打包有冗余代码。
 
+如果你想全局安装但是不想安装全部组件，请参考[按需引入](import-on-demand)。
+
 ```js
-import { createApp } from 'vue'
 import naive from 'naive-ui'
+import { createApp } from 'vue'
 
 const app = createApp(App)
 app.use(naive)
@@ -60,29 +63,16 @@ app.use(naive)
 </template>
 ```
 
-### 按需全局安装组件
+### Volar 支持（2.24.2）
 
-```js
-import { createApp } from 'vue'
-import {
-  // create naive ui
-  create,
-  // component
-  NButton
-} from 'naive-ui'
+如果你在使用 Volar，那么可以在 `tsconfig.json` 中配置 `compilerOptions.types` 来指定全局组件类型。
 
-const naive = create({
-  components: [NButton]
-})
-
-const app = createApp()
-app.use(naive)
-```
-
-安装后，你可以这样在 SFC 中使用你安装的组件。
-
-```html
-<template>
-  <n-button>naive-ui</n-button>
-</template>
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    // ...
+    "types": ["naive-ui/volar"]
+  }
+}
 ```

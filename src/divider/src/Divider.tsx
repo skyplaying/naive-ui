@@ -1,19 +1,19 @@
-import {
-  h,
-  computed,
-  defineComponent,
-  CSSProperties,
-  PropType,
-  Fragment
-} from 'vue'
-import { useConfig, useTheme } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
 import type { ExtractPublicPropTypes } from '../../_utils'
-import { dividerLight } from '../styles'
 import type { DividerTheme } from '../styles'
+import {
+  computed,
+  type CSSProperties,
+  defineComponent,
+  Fragment,
+  h,
+  type PropType
+} from 'vue'
+import { useConfig, useTheme, useThemeClass } from '../../_mixins'
+import { dividerLight } from '../styles'
 import style from './styles/index.cssr'
 
-const dividerProps = {
+export const dividerProps = {
   ...(useTheme.props as ThemeProps<DividerTheme>),
   titlePlacement: {
     type: String as PropType<'left' | 'center' | 'right'>,
@@ -28,33 +28,39 @@ export type DividerProps = ExtractPublicPropTypes<typeof dividerProps>
 export default defineComponent({
   name: 'Divider',
   props: dividerProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  setup(props) {
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
     const themeRef = useTheme(
       'Divider',
-      'Divider',
+      '-divider',
       style,
       dividerLight,
       props,
       mergedClsPrefixRef
     )
+    const cssVarsRef = computed(() => {
+      const {
+        common: { cubicBezierEaseInOut },
+        self: { color, textColor, fontWeight }
+      } = themeRef.value
+      return {
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-color': color,
+        '--n-text-color': textColor,
+        '--n-font-weight': fontWeight
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass('divider', undefined, cssVarsRef, props)
+      : undefined
     return {
       mergedClsPrefix: mergedClsPrefixRef,
-      cssVars: computed(() => {
-        const {
-          common: { cubicBezierEaseInOut },
-          self: { color, textColor, fontWeight }
-        } = themeRef.value
-        return {
-          '--bezier': cubicBezierEaseInOut,
-          '--color': color,
-          '--text-color': textColor,
-          '--font-weight': fontWeight
-        }
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     const {
       $slots,
       titlePlacement,
@@ -63,11 +69,13 @@ export default defineComponent({
       cssVars,
       mergedClsPrefix
     } = this
+    this.onRender?.()
     return (
       <div
         role="separator"
         class={[
           `${mergedClsPrefix}-divider`,
+          this.themeClass,
           {
             [`${mergedClsPrefix}-divider--vertical`]: vertical,
             [`${mergedClsPrefix}-divider--no-title`]: !$slots.default,

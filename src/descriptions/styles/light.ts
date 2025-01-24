@@ -1,13 +1,13 @@
+import type { Theme } from '../../_mixins/use-theme'
 import { composite } from 'seemly'
+import { commonLight, type ThemeCommonVars } from '../../_styles/common'
 import commonVariables from './_common'
-import { commonLight, ThemeCommonVars } from '../../_styles/common'
-import { Theme } from '../../_mixins/use-theme'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     tableHeaderColor,
-    textColor1,
     textColor2,
+    textColor1,
     cardColor,
     modalColor,
     popoverColor,
@@ -25,6 +25,7 @@ export const self = (vars: ThemeCommonVars) => {
     fontSizeSmall,
     fontSizeMedium,
     fontSizeLarge,
+    titleTextColor: textColor1,
     thColor: composite(cardColor, tableHeaderColor),
     thColorModal: composite(modalColor, tableHeaderColor),
     thColorPopover: composite(popoverColor, tableHeaderColor),
@@ -37,7 +38,7 @@ export const self = (vars: ThemeCommonVars) => {
     borderColor: composite(cardColor, dividerColor),
     borderColorModal: composite(modalColor, dividerColor),
     borderColorPopover: composite(popoverColor, dividerColor),
-    borderRadius: borderRadius
+    borderRadius
   }
 }
 

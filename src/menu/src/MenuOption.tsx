@@ -1,10 +1,11 @@
-import { h, computed, defineComponent, PropType } from 'vue'
+import type { TmNode } from './interface'
 import { useMemo } from 'vooks'
-import { render } from '../../_utils'
+import { computed, defineComponent, h, type PropType } from 'vue'
+import { keysOf, render } from '../../_utils'
 import { NTooltip } from '../../tooltip'
 import NMenuOptionContent from './MenuOptionContent'
-import { useMenuChild, useMenuChildProps } from './use-menu-child'
-import { TmNode } from './interface'
+import { useMenuChild } from './use-menu-child'
+import { useMenuChildProps } from './use-menu-child-props'
 
 export const menuItemProps = {
   ...useMenuChildProps,
@@ -12,18 +13,17 @@ export const menuItemProps = {
     type: Object as PropType<TmNode>,
     required: true
   },
-  disabled: {
-    type: Boolean,
-    default: false
-  },
+  disabled: Boolean,
   icon: Function,
   onClick: Function
 } as const
 
-export default defineComponent({
+export const menuItemPropKeys = keysOf(menuItemProps)
+
+export const NMenuOption = defineComponent({
   name: 'MenuOption',
   props: menuItemProps,
-  setup (props) {
+  setup(props) {
     const MenuChild = useMenuChild(props)
     const { NSubmenu, NMenu } = MenuChild
     const { props: menuProps, mergedClsPrefixRef, mergedCollapsedRef } = NMenu
@@ -33,11 +33,12 @@ export default defineComponent({
     const mergedDisabledRef = computed(() => {
       return submenuDisabledRef.value || props.disabled
     })
-    function doClick (e: MouseEvent): void {
+    function doClick(e: MouseEvent): void {
       const { onClick } = props
-      if (onClick) onClick(e)
+      if (onClick)
+        onClick(e)
     }
-    function handleClick (e: MouseEvent): void {
+    function handleClick(e: MouseEvent): void {
       if (!mergedDisabledRef.value) {
         NMenu.doSelect(props.internalKey, props.tmNode.rawNode)
         doClick(e)
@@ -51,47 +52,49 @@ export default defineComponent({
       maxIconSize: MenuChild.maxIconSize,
       activeIconSize: MenuChild.activeIconSize,
       mergedTheme: NMenu.mergedThemeRef,
+      menuProps,
       dropdownEnabled: useMemo(() => {
         return (
-          props.root &&
-          mergedCollapsedRef.value &&
-          menuProps.mode !== 'horizontal' &&
-          !mergedDisabledRef.value
+          props.root
+          && mergedCollapsedRef.value
+          && menuProps.mode !== 'horizontal'
+          && !mergedDisabledRef.value
         )
       }),
-      // Vue has bug when using vooks.useMemo
-      // menu item state won't be updated...
-      // a minimal reproduction is needed
-      selected: computed(() => {
-        if (NMenu.mergedValueRef.value === props.internalKey) return true
+      selected: useMemo(() => {
+        if (NMenu.mergedValueRef.value === props.internalKey)
+          return true
         return false
       }),
       mergedDisabled: mergedDisabledRef,
       handleClick
     }
   },
-  render () {
-    const { mergedClsPrefix, tmNode } = this
+  render() {
+    const {
+      mergedClsPrefix,
+      mergedTheme,
+      tmNode,
+      menuProps: { renderLabel, nodeProps }
+    } = this
+    const attrs = nodeProps?.(tmNode.rawNode)
     return (
       <div
+        {...attrs}
         role="menuitem"
-        class={[
-          `${mergedClsPrefix}-menu-item`,
-          {
-            [`${mergedClsPrefix}-menu-item--selected`]: this.selected,
-            [`${mergedClsPrefix}-menu-item--disabled`]: this.mergedDisabled
-          }
-        ]}
+        class={[`${mergedClsPrefix}-menu-item`, attrs?.class]}
       >
         <NTooltip
-          theme={this.mergedTheme.peers.Tooltip}
-          themeOverrides={this.mergedTheme.peerOverrides.Tooltip}
+          theme={mergedTheme.peers.Tooltip}
+          themeOverrides={mergedTheme.peerOverrides.Tooltip}
           trigger="hover"
           placement={this.dropdownPlacement}
           disabled={!this.dropdownEnabled || this.title === undefined}
+          internalExtraClass={['menu-tooltip']}
         >
           {{
-            default: () => render(this.title),
+            default: () =>
+              renderLabel ? renderLabel(tmNode.rawNode) : render(this.title),
             trigger: () => (
               <NMenuOptionContent
                 tmNode={tmNode}
@@ -100,6 +103,7 @@ export default defineComponent({
                 iconMarginRight={this.iconMarginRight}
                 maxIconSize={this.maxIconSize}
                 activeIconSize={this.activeIconSize}
+                selected={this.selected}
                 title={this.title}
                 extra={this.extra}
                 disabled={this.mergedDisabled}

@@ -1,15 +1,23 @@
-import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
 import type { Theme } from '../../_mixins/use-theme'
+import type { ThemeCommonVars } from '../../_styles/common'
+import { commonLight } from '../../_styles/common'
 import commonVariables from './_common'
 
-export const self = (vars: ThemeCommonVars) => {
-  const { boxShadow2, popoverColor, textColor2, borderRadius, fontSize } = vars
+export function self(vars: ThemeCommonVars) {
+  const {
+    boxShadow2,
+    popoverColor,
+    textColor2,
+    borderRadius,
+    fontSize,
+    dividerColor
+  } = vars
   return {
     ...commonVariables,
     fontSize,
     borderRadius,
     color: popoverColor,
+    dividerColor,
     textColor: textColor2,
     boxShadow: boxShadow2
   }

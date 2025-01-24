@@ -5,21 +5,23 @@ A twinkle placeholder.
 ## Demos
 
 ```demo
-basic
-box
-size
+basic.vue
+box.vue
+size.vue
 ```
 
-## Props
+## API
 
-| Name     | Type                             | Default     | Description |
-| -------- | -------------------------------- | ----------- | ----------- |
-| text     | `boolean`                        | `false`     |             |
-| round    | `boolean`                        | `false`     |             |
-| circle   | `boolean`                        | `false`     |             |
-| height   | `string \| number`               | `undefined` |             |
-| width    | `string \| number`               | `undefined` |             |
-| size     | `'small' \| 'medium' \| 'large'` | `undefined` |             |
-| repeat   | `string \| number`               | `1`         |             |
-| animated | `boolean`                        | `true`      |             |
-| sharp    | `boolean`                        | `true`      |             |
+### Skeleton Props
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| text | `boolean` | `false` | Text skeleton. |
+| round | `boolean` | `false` | Round skeleton. |
+| circle | `boolean` | `false` | Circle skeleton. |
+| height | `string \| number` | `undefined` | Skeleton height. |
+| width | `string \| number` | `undefined` | Skeleton width. |
+| size | `'small' \| 'medium' \| 'large'` | `undefined` | Skeleton size. |
+| repeat | `string \| number` | `1` | Repeat frequency. |
+| animated | `boolean` | `true` | Whether to enable animation. |
+| sharp | `boolean` | `true` | Whether to display as a right angled skeleton. |

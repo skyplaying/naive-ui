@@ -1,30 +1,39 @@
-import sizeVariables from './_common'
-import { commonLight } from '../../_styles/common'
+import type { Theme } from '../../_mixins'
 import type { ThemeCommonVars } from '../../_styles/common'
-import { Theme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
+import sizeVariables from './_common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     textColor2,
     primaryColor,
     textColorDisabled,
-    closeColor,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
     closeColorHover,
     closeColorPressed,
     tabColor,
+    baseColor,
     dividerColor,
     fontWeight,
     textColor1,
     borderRadius,
-    fontSize
+    fontSize,
+    fontWeightStrong
   } = vars
   return {
     ...sizeVariables,
+    colorSegment: tabColor,
     tabFontSizeCard: fontSize,
     tabTextColorLine: textColor1,
     tabTextColorActiveLine: primaryColor,
     tabTextColorHoverLine: primaryColor,
     tabTextColorDisabledLine: textColorDisabled,
+    tabTextColorSegment: textColor1,
+    tabTextColorActiveSegment: textColor2,
+    tabTextColorHoverSegment: textColor2,
+    tabTextColorDisabledSegment: textColorDisabled,
     tabTextColorBar: textColor1,
     tabTextColorActiveBar: primaryColor,
     tabTextColorHoverBar: primaryColor,
@@ -34,15 +43,20 @@ export const self = (vars: ThemeCommonVars) => {
     tabTextColorActiveCard: primaryColor,
     tabTextColorDisabledCard: textColorDisabled,
     barColor: primaryColor,
-    closeColor,
+    closeIconColor,
+    closeIconColorHover,
+    closeIconColorPressed,
     closeColorHover,
     closeColorPressed,
+    closeBorderRadius: borderRadius,
     tabColor,
+    tabColorSegment: baseColor,
     tabBorderColor: dividerColor,
     tabFontWeightActive: fontWeight,
     tabFontWeight: fontWeight,
     tabBorderRadius: borderRadius,
-    paneTextColor: textColor2
+    paneTextColor: textColor2,
+    fontWeightStrong
   }
 }
 

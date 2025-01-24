@@ -1,6 +1,6 @@
-import { cB, cNotM, cM } from '../../../_utils/cssr'
+import { cB, cM, cNotM } from '../../../_utils/cssr'
 
-export default cB('ellpisis', {
+export default cB('ellipsis', {
   overflow: 'hidden'
 }, [
   cNotM('line-clamp', `
@@ -12,5 +12,8 @@ export default cB('ellpisis', {
   cM('line-clamp', `
     display: -webkit-inline-box;
     -webkit-box-orient: vertical;
+  `),
+  cM('cursor-pointer', `
+    cursor: pointer;
   `)
 ])

@@ -1,32 +1,39 @@
-import {
-  h,
-  computed,
-  defineComponent,
-  inject,
-  PropType,
-  toRef,
-  watch,
-  nextTick
-} from 'vue'
-import { createTreeMate } from 'treemate'
-import { RenderLabel } from '../../_internal/select-menu/src/interface'
-import { tmOptions } from '../../select/src/utils'
-import {
+import type {
+  NodeProps,
+  RenderLabel
+} from '../../_internal/select-menu/src/interface'
+import type { MaybeArray } from '../../_utils'
+import type {
   OnUpdateValue,
   OnUpdateValueImpl,
-  Value,
-  SelectMixedOption,
   SelectBaseOption,
   SelectGroupOption,
   SelectIgnoredOption,
+  SelectMixedOption,
+  Value,
   ValueAtom
 } from '../../select/src/interface'
-import { useConfig } from '../../_mixins'
-import { NInternalSelectMenu } from '../../_internal'
-import { call, keysOf, warn } from '../../_utils'
-import type { MaybeArray } from '../../_utils'
 import type { PopselectSize } from './interface'
+import { happensIn } from 'seemly'
+import { createTreeMate, type TreeNode } from 'treemate'
+import {
+  computed,
+  defineComponent,
+  h,
+  inject,
+  nextTick,
+  type PropType,
+  toRef,
+  watch,
+  watchEffect
+} from 'vue'
+import { NInternalSelectMenu } from '../../_internal'
+import { useConfig, useTheme, useThemeClass } from '../../_mixins'
+import { call, keysOf, warn } from '../../_utils'
+import { createTmOptions } from '../../select/src/utils'
+import { popselectLight } from '../styles'
 import { popselectInjectionKey } from './interface'
+import style from './styles/index.cssr'
 
 export const panelProps = {
   multiple: Boolean,
@@ -35,7 +42,6 @@ export const panelProps = {
     default: null
   },
   cancelable: Boolean,
-  width: [Number, String] as PropType<string | number>,
   options: {
     type: Array as PropType<SelectMixedOption[]>,
     default: () => []
@@ -50,18 +56,14 @@ export const panelProps = {
   onMouseenter: Function as PropType<(e: MouseEvent) => void>,
   onMouseleave: Function as PropType<(e: MouseEvent) => void>,
   renderLabel: Function as PropType<RenderLabel>,
-  // deprecated
-  onChange: {
-    type: [Function, Array] as PropType<MaybeArray<OnUpdateValue> | undefined>,
-    validator: () => {
-      warn(
-        'popselect',
-        '`on-change` is deprecated, please use `on-update:value` instead.'
-      )
-      return true
-    },
+  showCheckmark: {
+    type: Boolean,
     default: undefined
-  }
+  },
+  nodeProps: Function as PropType<NodeProps>,
+  virtualScroll: Boolean,
+  // deprecated
+  onChange: [Function, Array] as PropType<MaybeArray<OnUpdateValue> | undefined>
 } as const
 
 export const panelPropKeys = keysOf(panelProps)
@@ -69,47 +71,116 @@ export const panelPropKeys = keysOf(panelProps)
 export default defineComponent({
   name: 'PopselectPanel',
   props: panelProps,
-  setup (props) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  setup(props) {
+    if (__DEV__) {
+      watchEffect(() => {
+        if (props.onChange !== undefined) {
+          warn(
+            'popselect',
+            '`on-change` is deprecated, please use `on-update:value` instead.'
+          )
+        }
+      })
+    }
+
     const NPopselect = inject(popselectInjectionKey)!
 
-    const { mergedClsPrefixRef } = useConfig(props)
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
 
-    function doUpdateValue (value: Value | null): void {
+    const themeRef = useTheme(
+      'Popselect',
+      '-pop-select',
+      style,
+      popselectLight,
+      NPopselect.props,
+      mergedClsPrefixRef
+    )
+
+    const treeMateRef = computed(() => {
+      return createTreeMate<
+        SelectBaseOption,
+        SelectGroupOption,
+        SelectIgnoredOption
+      >(props.options, createTmOptions('value', 'children'))
+    })
+
+    function doUpdateValue(
+      value: Value | null,
+      option: SelectBaseOption | null | SelectBaseOption[]
+    ): void {
       const {
         onUpdateValue,
         'onUpdate:value': _onUpdateValue,
         onChange
       } = props
-      if (onUpdateValue) call(onUpdateValue as OnUpdateValueImpl, value)
-      if (_onUpdateValue) call(_onUpdateValue as OnUpdateValueImpl, value)
-      if (onChange) call(onChange as OnUpdateValueImpl, value)
+      if (onUpdateValue)
+        call(onUpdateValue as OnUpdateValueImpl, value, option)
+      if (_onUpdateValue) {
+        call(_onUpdateValue as OnUpdateValueImpl, value, option)
+      }
+      if (onChange)
+        call(onChange as OnUpdateValueImpl, value, option)
     }
-    function handleMenuToggleOption (option: SelectBaseOption): void {
-      toggle(option.value)
+    function handleToggle(tmNode: TreeNode<SelectBaseOption>): void {
+      toggle(tmNode.key)
     }
-    function toggle (value: ValueAtom): void {
+    function handleMenuMousedown(e: MouseEvent): void {
+      if (
+        !happensIn(e, 'action')
+        && !happensIn(e, 'empty')
+        && !happensIn(e, 'header')
+      ) {
+        e.preventDefault()
+      }
+    }
+    function toggle(value: ValueAtom): void {
+      const {
+        value: { getNode }
+      } = treeMateRef
       if (props.multiple) {
         if (Array.isArray(props.value)) {
-          const validValues = new Set(
-            props.options.map((option) => option.value)
-          )
-          const newValue = props.value.filter((v) => validValues.has(v))
-          const index = newValue.findIndex((v) => v === value)
-          if (~index) {
-            newValue.splice(index, 1)
-          } else {
+          const newValue: ValueAtom[] = []
+          const newOptions: SelectBaseOption[] = []
+          let shouldAddValue = true
+          props.value.forEach((v) => {
+            if (v === value) {
+              shouldAddValue = false
+              return
+            }
+            const tmNode = getNode(v)
+            if (tmNode) {
+              newValue.push(tmNode.key)
+              newOptions.push(tmNode.rawNode)
+            }
+          })
+          if (shouldAddValue) {
             newValue.push(value)
+            newOptions.push(getNode(value)!.rawNode)
           }
-          doUpdateValue(newValue)
-        } else {
-          doUpdateValue([value])
+          doUpdateValue(newValue, newOptions)
         }
-      } else {
+        else {
+          const tmNode = getNode(value)
+          if (tmNode) {
+            doUpdateValue([value], [tmNode.rawNode])
+          }
+        }
+      }
+      else {
         if (props.value === value && props.cancelable) {
-          doUpdateValue(null)
-        } else {
-          doUpdateValue(value)
+          doUpdateValue(null, null)
+        }
+        else {
+          const tmNode = getNode(value)
+          if (tmNode) {
+            doUpdateValue(value, tmNode.rawNode)
+          }
+          const { 'onUpdate:show': _onUpdateShow, onUpdateShow }
+            = NPopselect.props
+          if (_onUpdateShow)
+            call(_onUpdateShow, false)
+          if (onUpdateShow)
+            call(onUpdateShow, false)
           NPopselect.setShow(false)
         }
       }
@@ -122,37 +193,58 @@ export default defineComponent({
         NPopselect.syncPosition()
       })
     })
+    const cssVarsRef = computed(() => {
+      const {
+        self: { menuBoxShadow }
+      } = themeRef.value
+      return {
+        '--n-menu-box-shadow': menuBoxShadow
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass('select', undefined, cssVarsRef, NPopselect.props)
+      : undefined
     return {
       mergedTheme: NPopselect.mergedThemeRef,
       mergedClsPrefix: mergedClsPrefixRef,
-      treeMate: computed(() => {
-        return createTreeMate<
-        SelectBaseOption,
-        SelectGroupOption,
-        SelectIgnoredOption
-        >(props.options, tmOptions)
-      }),
-      handleMenuToggleOption
+      treeMate: treeMateRef,
+      handleToggle,
+      handleMenuMousedown,
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
+    this.onRender?.()
     return (
       <NInternalSelectMenu
         clsPrefix={this.mergedClsPrefix}
+        focusable
+        nodeProps={this.nodeProps}
+        class={[`${this.mergedClsPrefix}-popselect-menu`, this.themeClass]}
+        style={this.cssVars}
         theme={this.mergedTheme.peers.InternalSelectMenu}
         themeOverrides={this.mergedTheme.peerOverrides.InternalSelectMenu}
         multiple={this.multiple}
         treeMate={this.treeMate}
         size={this.size}
         value={this.value}
-        width={this.width}
-        virtualScroll={false}
+        virtualScroll={this.virtualScroll}
         scrollable={this.scrollable}
         renderLabel={this.renderLabel}
-        onMenuToggleOption={this.handleMenuToggleOption}
+        onToggle={this.handleToggle}
         onMouseenter={this.onMouseenter}
         onMouseleave={this.onMouseenter}
-      />
+        onMousedown={this.handleMenuMousedown}
+        showCheckmark={this.showCheckmark}
+      >
+        {{
+          header: () => this.$slots.header?.() || [],
+          action: () => this.$slots.action?.() || [],
+          empty: () => this.$slots.empty?.() || []
+        }}
+      </NInternalSelectMenu>
     )
   }
 })

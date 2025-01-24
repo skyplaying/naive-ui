@@ -1,20 +1,14 @@
-import {
-  h,
-  toRef,
-  ref,
-  inject,
-  renderSlot,
-  defineComponent,
-  watch,
-  Ref,
-  InjectionKey
-} from 'vue'
 import { useMemo } from 'vooks'
+import { defineComponent, h, inject, type Ref, ref, toRef, watch } from 'vue'
+import {
+  createInjectionKey,
+  type ExtractPublicPropTypes,
+  getTitleAttribute
+} from '../../_utils'
 import {
   useInjectionCollection,
   useInjectionElementCollection
 } from '../../_utils/composable'
-import type { ExtractPublicPropTypes } from '../../_utils'
 
 export interface AnchorInjection {
   activeHref: Ref<string | null>
@@ -25,11 +19,10 @@ export interface AnchorInjection {
   titleEls: HTMLElement[]
 }
 
-export const anchorInjectionKey: InjectionKey<AnchorInjection> = Symbol(
-  'anchor'
-)
+export const anchorInjectionKey
+  = createInjectionKey<AnchorInjection>('n-anchor')
 
-const anchorLinkProps = {
+export const anchorLinkProps = {
   title: String,
   href: String
 } as const
@@ -39,9 +32,8 @@ export type AnchorLinkProps = ExtractPublicPropTypes<typeof anchorLinkProps>
 export default defineComponent({
   name: 'AnchorLink',
   props: anchorLinkProps,
-  setup (props, { slots }) {
+  setup(props, { slots }) {
     const titleRef = ref<HTMLElement | null>(null)
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const NAnchor = inject(anchorInjectionKey)!
     const hrefRef = toRef(props, 'href')
     const activeRef = useMemo(() => {
@@ -58,7 +50,7 @@ export default defineComponent({
         NAnchor.updateBarPosition(titleRef.value)
       }
     })
-    function handleClick (): void {
+    function handleClick(): void {
       if (props.href !== undefined) {
         NAnchor.setActiveHref(props.href)
       }
@@ -66,19 +58,22 @@ export default defineComponent({
     return () => {
       const { value: mergedClsPrefix } = NAnchor.mergedClsPrefix
       return (
-        <div class={`${mergedClsPrefix}-anchor-link`}>
+        <div
+          class={[
+            `${mergedClsPrefix}-anchor-link`,
+            activeRef.value && `${mergedClsPrefix}-anchor-link--active`
+          ]}
+        >
           <a
             ref={titleRef}
-            class={[
-              `${mergedClsPrefix}-anchor-link__title`,
-              activeRef.value && `${mergedClsPrefix}-anchor-link__title--active`
-            ]}
+            class={[`${mergedClsPrefix}-anchor-link__title`]}
             href={props.href}
+            title={getTitleAttribute(props.title)}
             onClick={handleClick}
           >
             {props.title}
           </a>
-          {renderSlot(slots, 'default')}
+          {slots.default?.()}
         </div>
       )
     }

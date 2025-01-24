@@ -1,16 +1,15 @@
-import {
-  h,
-  defineComponent,
-  CSSProperties,
-  inject,
-  renderSlot,
-  getCurrentInstance,
-  PropType
-} from 'vue'
-import { pxfy } from 'seemly'
-import { gridInjectionKey } from './Grid'
-import { keysOf } from '../../_utils'
 import type { ExtractPublicPropTypes } from '../../_utils'
+import { pxfy } from 'seemly'
+import {
+  computed,
+  defineComponent,
+  getCurrentInstance,
+  h,
+  inject,
+  type PropType
+} from 'vue'
+import { keysOf } from '../../_utils'
+import { gridInjectionKey } from './config'
 
 export const defaultSpan = 1
 
@@ -50,25 +49,30 @@ export default defineComponent({
   name: 'GridItem',
   alias: ['Gi'],
   props: gridItemProps,
-  setup (props) {
+  setup() {
     const {
+      isSsrRef,
       xGapRef,
       itemStyleRef,
-      overflowRef
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      overflowRef,
+      layoutShiftDisabledRef
     } = inject(gridInjectionKey)!
     const self = getCurrentInstance()
     return {
       overflow: overflowRef,
       itemStyle: itemStyleRef,
+      layoutShiftDisabled: layoutShiftDisabledRef,
+      mergedXGap: computed(() => {
+        return pxfy(xGapRef.value || 0)
+      }),
       deriveStyle: () => {
+        void isSsrRef.value
         // Here is quite a hack, I hope there is a better way to solve it
         const {
           privateSpan = defaultSpan,
           privateShow = true,
           privateColStart = undefined,
           privateOffset = 0
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         } = self!.vnode.props as GridItemVNodeProps
         const { value: xGap } = xGapRef
         const mergedXGap = pxfy(xGap || 0)
@@ -84,14 +88,25 @@ export default defineComponent({
       }
     }
   },
-  render () {
+  render() {
+    if (this.layoutShiftDisabled) {
+      const { span, offset, mergedXGap } = this
+      return (
+        <div
+          style={{
+            gridColumn: `span ${span} / span ${span}`,
+            marginLeft: offset
+              ? `calc((100% - (${span} - 1) * ${mergedXGap}) / ${span} * ${offset} + ${mergedXGap} * ${offset})`
+              : ''
+          }}
+        >
+          {this.$slots}
+        </div>
+      )
+    }
     return (
-      <div
-        style={
-          ([this.itemStyle, this.deriveStyle()] as unknown) as CSSProperties
-        }
-      >
-        {renderSlot(this.$slots, 'default', { overflow: this.overflow })}
+      <div style={[this.itemStyle as any, this.deriveStyle()]}>
+        {this.$slots.default?.({ overflow: this.overflow })}
       </div>
     )
   }

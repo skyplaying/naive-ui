@@ -1,23 +1,37 @@
-import {
-  defineComponent,
-  computed,
-  inject,
-  PropType,
-  h,
-  renderSlot,
-  CSSProperties
-} from 'vue'
-import { createKey, throwError } from '../../_utils'
 import type { ExtractPublicPropTypes } from '../../_utils'
+import {
+  computed,
+  type CSSProperties,
+  defineComponent,
+  h,
+  inject,
+  type PropType,
+  type SlotsType,
+  type VNode
+} from 'vue'
+import { useConfig, useThemeClass } from '../../_mixins'
+import {
+  createKey,
+  formatLength,
+  resolveSlot,
+  resolveWrappedSlot,
+  throwError,
+  useHoudini
+} from '../../_utils'
 import { timelineInjectionKey } from './Timeline'
 
-const timelineItemProps = {
+export const timelineItemProps = {
   time: [String, Number] as PropType<string | number>,
   title: String,
   content: String,
+  color: String,
+  lineType: {
+    type: String as PropType<'default' | 'dashed'>,
+    default: 'default'
+  },
   type: {
     type: String as PropType<
-    'default' | 'success' | 'error' | 'warning' | 'info'
+      'default' | 'success' | 'error' | 'warning' | 'info'
     >,
     default: 'default'
   }
@@ -25,10 +39,18 @@ const timelineItemProps = {
 
 export type TimelineItemProps = ExtractPublicPropTypes<typeof timelineItemProps>
 
+export interface TimelineItemSlots {
+  default?: () => VNode[]
+  icon?: () => VNode[]
+  footer?: () => VNode[]
+  header?: () => VNode[]
+}
+
 export default defineComponent({
   name: 'TimelineItem',
   props: timelineItemProps,
-  setup (props) {
+  slots: Object as SlotsType<TimelineItemSlots>,
+  setup(props) {
     const NTimeline = inject(timelineInjectionKey)
     if (!NTimeline) {
       throwError(
@@ -36,70 +58,114 @@ export default defineComponent({
         '`n-timeline-item` must be placed inside `n-timeline`.'
       )
     }
+    useHoudini()
+    const { inlineThemeDisabled } = useConfig()
+    const cssVarsRef = computed(() => {
+      const {
+        props: { size, iconSize: iconSizeProp },
+        mergedThemeRef
+      } = NTimeline
+      const { type } = props
+      const {
+        self: {
+          titleTextColor,
+          contentTextColor,
+          metaTextColor,
+          lineColor,
+          titleFontWeight,
+          contentFontSize,
+          [createKey('iconSize', size)]: iconSize,
+          [createKey('titleMargin', size)]: titleMargin,
+          [createKey('titleFontSize', size)]: titleFontSize,
+          [createKey('circleBorder', type)]: circleBorder,
+          [createKey('iconColor', type)]: iconColor
+        },
+        common: { cubicBezierEaseInOut }
+      } = mergedThemeRef.value
+      return {
+        '--n-bezier': cubicBezierEaseInOut,
+        '--n-circle-border': circleBorder,
+        '--n-icon-color': iconColor,
+        '--n-content-font-size': contentFontSize,
+        '--n-content-text-color': contentTextColor,
+        '--n-line-color': lineColor,
+        '--n-meta-text-color': metaTextColor,
+        '--n-title-font-size': titleFontSize,
+        '--n-title-font-weight': titleFontWeight,
+        '--n-title-margin': titleMargin,
+        '--n-title-text-color': titleTextColor,
+        '--n-icon-size': formatLength(iconSizeProp) || iconSize
+      }
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'timeline-item',
+          computed(() => {
+            const {
+              props: { size, iconSize: iconSizeProp }
+            } = NTimeline
+            const { type } = props
+            return `${size[0]}${iconSizeProp || 'a'}${type[0]}`
+          }),
+          cssVarsRef,
+          NTimeline.props
+        )
+      : undefined
     return {
       mergedClsPrefix: NTimeline.mergedClsPrefixRef,
-      cssVars: computed(() => {
-        const {
-          props: { size },
-          mergedThemeRef
-        } = NTimeline
-        const { type } = props
-        const {
-          self: {
-            titleTextColor,
-            contentTextColor,
-            metaTextColor,
-            lineColor,
-            titleFontWeight,
-            contentFontSize,
-            [createKey('titleMargin', size)]: titleMargin,
-            [createKey('titleFontSize', size)]: titleFontSize,
-            [createKey('circleBorder', type)]: circleBorder
-          },
-          common: { cubicBezierEaseInOut }
-        } = mergedThemeRef.value
-        return {
-          '--bezier': cubicBezierEaseInOut,
-          '--circle-border': circleBorder,
-          '--content-font-size': contentFontSize,
-          '--content-text-color': contentTextColor,
-          '--line-color': lineColor,
-          '--meta-text-color': metaTextColor,
-          '--title-font-size': titleFontSize,
-          '--title-font-weight': titleFontWeight,
-          '--title-margin': titleMargin,
-          '--title-text-color': titleTextColor
-        }
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
-    const { mergedClsPrefix } = this
+  render() {
+    const { mergedClsPrefix, color, onRender, $slots } = this
+    onRender?.()
     return (
       <div
         class={[
           `${mergedClsPrefix}-timeline-item`,
-          `${mergedClsPrefix}-timeline-item--${this.type}-type`
+          this.themeClass,
+          `${mergedClsPrefix}-timeline-item--${this.type}-type`,
+          `${mergedClsPrefix}-timeline-item--${this.lineType}-line-type`
         ]}
         style={this.cssVars as CSSProperties}
       >
         <div class={`${mergedClsPrefix}-timeline-item-timeline`}>
           <div class={`${mergedClsPrefix}-timeline-item-timeline__line`} />
-          <div class={`${mergedClsPrefix}-timeline-item-timeline__circle`} />
+          {resolveWrappedSlot($slots.icon, (children) => {
+            return children ? (
+              <div
+                class={`${mergedClsPrefix}-timeline-item-timeline__icon`}
+                style={{ color }}
+              >
+                {children}
+              </div>
+            ) : (
+              <div
+                class={`${mergedClsPrefix}-timeline-item-timeline__circle`}
+                style={{ borderColor: color }}
+              />
+            )
+          })}
         </div>
         <div class={`${mergedClsPrefix}-timeline-item-content`}>
-          {this.title ? (
-            <div class={`${mergedClsPrefix}-timeline-item-content__title`}>
-              {renderSlot(this.$slots, 'header', undefined, () => [this.title])}
-            </div>
-          ) : null}
+          {resolveWrappedSlot($slots.header, (children) => {
+            const mergedChildren = children || this.title
+            if (mergedChildren) {
+              return (
+                <div class={`${mergedClsPrefix}-timeline-item-content__title`}>
+                  {children || this.title}
+                </div>
+              )
+            }
+            return null
+          })}
           <div class={`${mergedClsPrefix}-timeline-item-content__content`}>
-            {renderSlot(this.$slots, 'default', undefined, () => [
-              this.content
-            ])}
+            {resolveSlot($slots.default, () => [this.content])}
           </div>
           <div class={`${mergedClsPrefix}-timeline-item-content__meta`}>
-            {renderSlot(this.$slots, 'footer', undefined, () => [this.time])}
+            {resolveSlot($slots.footer, () => [this.time])}
           </div>
         </div>
       </div>

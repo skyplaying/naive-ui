@@ -1,15 +1,14 @@
-import { h, inject, defineComponent } from 'vue'
 import { useMemo } from 'vooks'
+import { defineComponent, h, inject, type PropType } from 'vue'
+import { NBaseClose } from '../../_internal'
+import { getTitleAttribute } from '../../_utils'
 import { NCheckbox } from '../../checkbox'
-import { transferInjectionKey } from './interface'
+import { type Option, transferInjectionKey } from './interface'
 
 export default defineComponent({
   name: 'NTransferListItem',
   props: {
-    source: {
-      type: Boolean,
-      default: false
-    },
+    source: Boolean,
     label: {
       type: String,
       required: true
@@ -18,46 +17,49 @@ export default defineComponent({
       type: [String, Number],
       required: true
     },
-    disabled: {
-      type: Boolean,
-      default: false
+    disabled: Boolean,
+    option: {
+      type: Object as PropType<Option>,
+      required: true
     }
   },
-  setup (props) {
-    const { source } = props
+  setup(props) {
     const {
+      targetValueSetRef,
       mergedClsPrefixRef,
       mergedThemeRef,
-      srcCheckedValuesRef,
-      tgtCheckedValuesRef,
-      handleSrcCheckboxClick,
-      handleTgtCheckboxClick
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      handleItemCheck,
+      renderSourceLabelRef,
+      renderTargetLabelRef,
+      showSelectedRef
     } = inject(transferInjectionKey)!
-    const checkedRef = source
-      ? useMemo(() => srcCheckedValuesRef.value.includes(props.value))
-      : useMemo(() => tgtCheckedValuesRef.value.includes(props.value))
-    const handleClick = source
-      ? () => {
-          if (!props.disabled) {
-            handleSrcCheckboxClick(!checkedRef.value, props.value)
-          }
-        }
-      : () => {
-          if (!props.disabled) {
-            handleTgtCheckboxClick(!checkedRef.value, props.value)
-          }
-        }
+    const checkedRef = useMemo(() => targetValueSetRef.value.has(props.value))
+    function handleClick(): void {
+      if (!props.disabled) {
+        handleItemCheck(!checkedRef.value, props.value)
+      }
+    }
     return {
       mergedClsPrefix: mergedClsPrefixRef,
       mergedTheme: mergedThemeRef,
       checked: checkedRef,
+      showSelected: showSelectedRef,
+      renderSourceLabel: renderSourceLabelRef,
+      renderTargetLabel: renderTargetLabelRef,
       handleClick
     }
   },
-  render () {
-    const { disabled, mergedTheme, mergedClsPrefix, label, checked, source } =
-      this
+  render() {
+    const {
+      disabled,
+      mergedTheme,
+      mergedClsPrefix,
+      label,
+      checked,
+      source,
+      renderSourceLabel,
+      renderTargetLabel
+    } = this
     return (
       <div
         class={[
@@ -67,19 +69,43 @@ export default defineComponent({
             ? `${mergedClsPrefix}-transfer-list-item--source`
             : `${mergedClsPrefix}-transfer-list-item--target`
         ]}
-        onClick={this.handleClick}
+        onClick={source ? this.handleClick : undefined}
       >
-        <div class={`${mergedClsPrefix}-transfer-list-item__checkbox`}>
-          <NCheckbox
-            theme={mergedTheme.peers.Checkbox}
-            themeOverrides={mergedTheme.peerOverrides.Checkbox}
-            disabled={disabled}
-            checked={checked}
+        <div class={`${mergedClsPrefix}-transfer-list-item__background`} />
+        {source && this.showSelected && (
+          <div class={`${mergedClsPrefix}-transfer-list-item__checkbox`}>
+            <NCheckbox
+              theme={mergedTheme.peers.Checkbox}
+              themeOverrides={mergedTheme.peerOverrides.Checkbox}
+              disabled={disabled}
+              checked={checked}
+            />
+          </div>
+        )}
+        <div
+          class={`${mergedClsPrefix}-transfer-list-item__label`}
+          title={getTitleAttribute(label)}
+        >
+          {source
+            ? renderSourceLabel
+              ? renderSourceLabel({
+                  option: this.option
+                })
+              : label
+            : renderTargetLabel
+              ? renderTargetLabel({
+                  option: this.option
+                })
+              : label}
+        </div>
+        {!source && !disabled && (
+          <NBaseClose
+            focusable={false}
+            class={`${mergedClsPrefix}-transfer-list-item__close`}
+            clsPrefix={mergedClsPrefix}
+            onClick={this.handleClick}
           />
-        </div>
-        <div class={`${mergedClsPrefix}-transfer-list-item__label`}>
-          {label}
-        </div>
+        )}
       </div>
     )
   }

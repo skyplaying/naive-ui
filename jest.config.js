@@ -53,7 +53,7 @@ module.exports = {
 
   // A set of global variables that need to be available in all test environments
   globals: {
-    __DEV__: false
+    __DEV__: true
   },
 
   // The maximum amount of workers used to run your tests. Can be specified as % or a number. E.g. maxWorkers: 10% will use 10% of your CPU amount + 1 as the maximum worker number. maxWorkers: 2 will use a maximum of 2 workers.
@@ -66,7 +66,9 @@ module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts', 'tsx'],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  moduleNameMapper: {
+    '^lodash-es$': 'lodash'
+  },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
@@ -110,10 +112,10 @@ module.exports = {
   // runner: "jest-runner",
 
   // The paths to modules that run some code to configure or set up the testing environment before each test
-  // setupFiles: [],
+  setupFiles: ['jest-canvas-mock'],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  // setupFilesAfterEnv: [],
+  setupFilesAfterEnv: ['<rootDir>/src/jest-setup.ts'],
 
   // A list of paths to snapshot serializer modules Jest should use for snapshot testing
   // snapshotSerializers: [],
@@ -122,7 +124,11 @@ module.exports = {
   testEnvironment: 'jest-environment-jsdom',
 
   // Options that will be passed to the testEnvironment
-  // testEnvironmentOptions: {},
+  testEnvironmentOptions: {
+    // This option sets the URL for the jsdom environment. It is reflected in properties such as location.href
+    url: 'http://localhost',
+    customExportConditions: ['node']
+  },
 
   // Adds a location field to test results
   // testLocationInResults: false,
@@ -145,19 +151,22 @@ module.exports = {
   // This option allows use of a custom test runner
   // testRunner: "jasmine2",
 
-  // This option sets the URL for the jsdom environment. It is reflected in properties such as location.href
-  testURL: 'http://localhost',
-
   // Setting this value to "fake" allows the use of fake timers for functions such as "setTimeout"
   // timers: "real",
 
   // A map from regular expressions to paths to transformers
   transform: {
-    '^.+\\.(j|t)sx?$': 'babel-jest'
+    '^.+\\.(jsx|js|mjs)?$': 'babel-jest',
+    '^.+\\.(tsx|ts)?$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.test.json'
+      }
+    ]
   },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-  transformIgnorePatterns: ['<rootDir>/node_modules/(?!lodash-es)'],
+  transformIgnorePatterns: ['!node_modules/'],
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
   // unmockedModulePathPatterns: undefined,

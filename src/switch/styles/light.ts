@@ -1,14 +1,17 @@
-import { changeColor } from 'seemly'
-import commonVars from './_common'
-import { commonLight } from '../../_styles/common'
-import type { ThemeCommonVars } from '../../_styles/common'
 import type { Theme } from '../../_mixins'
+import type { ThemeCommonVars } from '../../_styles/common'
+import { changeColor } from 'seemly'
+import { commonLight } from '../../_styles/common'
+import commonVars from './_common'
 
-const self = (vars: ThemeCommonVars) => {
-  const { primaryColor, opacityDisabled, borderRadius } = vars
+function self(vars: ThemeCommonVars) {
+  const { primaryColor, opacityDisabled, borderRadius, textColor3 } = vars
   const railOverlayColor = 'rgba(0, 0, 0, .14)'
   return {
     ...commonVars,
+    iconColor: textColor3,
+    textColor: 'white',
+    loadingColor: primaryColor,
     opacityDisabled,
     railColor: railOverlayColor,
     railColorActive: primaryColor,

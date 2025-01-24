@@ -5,19 +5,19 @@ Element has many theme variables provided by Naive UI.
 ## Demos
 
 ```demo
-basic
-color
+basic.vue
 ```
 
-## Props
+## API
 
-| Name     | Type      | Default | Description                                |
-| -------- | --------- | ------- | ------------------------------------------ |
-| abstract | `boolean` | `false` | Whether to render a wrapper DOM.           |
-| tag      | `string`  | `'div'` | The tag `n-element` should be rendered as. |
+### Element Props
 
-## Slots
+| Name | Type     | Default | Description                                |
+| ---- | -------- | ------- | ------------------------------------------ |
+| tag  | `string` | `'div'` | The tag `n-element` should be rendered as. |
 
-| Name    | Parameters                     | Description |
-| ------- | ------------------------------ | ----------- |
-| default | `(themeVars: CommonThemeVars)` |             |
+### Element Slots
+
+| Name    | Parameters | Description                 |
+| ------- | ---------- | --------------------------- |
+| default | `()`       | The content of the element. |

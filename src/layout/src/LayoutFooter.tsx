@@ -1,13 +1,13 @@
-import { h, computed, defineComponent, CSSProperties } from 'vue'
-import { useConfig, useTheme } from '../../_mixins'
 import type { ThemeProps } from '../../_mixins'
-import { layoutLight } from '../styles'
+import type { ExtractPublicPropTypes } from '../../_utils'
 import type { LayoutTheme } from '../styles'
+import { computed, defineComponent, h } from 'vue'
+import { useConfig, useTheme, useThemeClass } from '../../_mixins'
+import { layoutLight } from '../styles'
 import { positionProp } from './interface'
 import style from './styles/layout-footer.cssr'
-import type { ExtractPublicPropTypes } from '../../_utils'
 
-const layoutFooterProps = {
+export const layoutFooterProps = {
   ...(useTheme.props as ThemeProps<LayoutTheme>),
   inverted: Boolean,
   position: positionProp,
@@ -19,50 +19,64 @@ export type LayoutFooterProps = ExtractPublicPropTypes<typeof layoutFooterProps>
 export default defineComponent({
   name: 'LayoutFooter',
   props: layoutFooterProps,
-  setup (props) {
-    const { mergedClsPrefixRef } = useConfig(props)
+  setup(props) {
+    const { mergedClsPrefixRef, inlineThemeDisabled } = useConfig(props)
     const themeRef = useTheme(
       'Layout',
-      'LayoutFooter',
+      '-layout-footer',
       style,
       layoutLight,
       props,
       mergedClsPrefixRef
     )
+    const cssVarsRef = computed(() => {
+      const {
+        common: { cubicBezierEaseInOut },
+        self
+      } = themeRef.value
+      const vars: any = {
+        '--n-bezier': cubicBezierEaseInOut
+      }
+      if (props.inverted) {
+        vars['--n-color'] = self.footerColorInverted
+        vars['--n-text-color'] = self.textColorInverted
+        vars['--n-border-color'] = self.footerBorderColorInverted
+      }
+      else {
+        vars['--n-color'] = self.footerColor
+        vars['--n-text-color'] = self.textColor
+        vars['--n-border-color'] = self.footerBorderColor
+      }
+      return vars
+    })
+    const themeClassHandle = inlineThemeDisabled
+      ? useThemeClass(
+          'layout-footer',
+          computed(() => (props.inverted ? 'a' : 'b')),
+          cssVarsRef,
+          props
+        )
+      : undefined
     return {
       mergedClsPrefix: mergedClsPrefixRef,
-      cssVars: computed(() => {
-        const {
-          common: { cubicBezierEaseInOut },
-          self
-        } = themeRef.value
-        const vars: any = {
-          '--bezier': cubicBezierEaseInOut
-        }
-        if (props.inverted) {
-          vars['--color'] = self.footerColorInverted
-          vars['--text-color'] = self.textColorInverted
-          vars['--border-color'] = self.footerBorderColorInverted
-        } else {
-          vars['--color'] = self.footerColor
-          vars['--text-color'] = self.textColor
-          vars['--border-color'] = self.footerBorderColor
-        }
-        return vars
-      })
+      cssVars: inlineThemeDisabled ? undefined : cssVarsRef,
+      themeClass: themeClassHandle?.themeClass,
+      onRender: themeClassHandle?.onRender
     }
   },
-  render () {
+  render() {
     const { mergedClsPrefix } = this
+    this.onRender?.()
     return (
       <div
         class={[
           `${mergedClsPrefix}-layout-footer`,
-          this.position &&
-            `${mergedClsPrefix}-layout-footer--${this.position}-positioned`,
+          this.themeClass,
+          this.position
+          && `${mergedClsPrefix}-layout-footer--${this.position}-positioned`,
           this.bordered && `${mergedClsPrefix}-layout-footer--bordered`
         ]}
-        style={this.cssVars as CSSProperties}
+        style={this.cssVars}
       >
         {this.$slots}
       </div>

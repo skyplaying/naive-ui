@@ -1,32 +1,31 @@
-import { h, defineComponent, inject, computed, Ref } from 'vue'
-import { NDropdown } from '../../../dropdown'
-import { NLocale } from '../../../locales'
+import type { NLocale } from '../../../locales'
+import type { DataTableSelectionOption, InternalRowData } from '../interface'
+import { computed, defineComponent, h, inject, type Ref } from 'vue'
 import { NBaseIcon } from '../../../_internal'
 import { ChevronDownIcon } from '../../../_internal/icons'
-import type { InternalRowData } from '../interface'
+import { NDropdown } from '../../../dropdown'
 import { dataTableInjectionKey } from '../interface'
-
-export type DataTableSelectionOption = 'all' | 'none'
 
 const allKey = '_n_all__'
 const noneKey = '_n_none__'
 
-function createSelectHandler (
+function createSelectHandler(
   options:
-  | Array<
-  | DataTableSelectionOption
-  | {
-    label: string
-    key: string | number
-    onSelect: (pageData: InternalRowData[]) => void
-  }
-  >
-  | undefined,
+    | Array<
+      | DataTableSelectionOption
+      | {
+        label: string
+        key: string | number
+        onSelect: (pageData: InternalRowData[]) => void
+      }
+    >
+    | undefined,
   rawPaginatedDataRef: Ref<InternalRowData[]>,
   doCheckAll: (checkWholeTable?: boolean) => void,
   doUncheckAll: (checkWholeTable?: boolean) => void
 ): (key: string | number) => void {
-  if (!options) return () => {}
+  if (!options)
+    return () => {}
   return (key: string | number) => {
     for (const option of options) {
       switch (key) {
@@ -46,16 +45,21 @@ function createSelectHandler (
   }
 }
 
-function createDropdownOptions (
+function createDropdownOptions(
   options:
-  | Array<
-  | DataTableSelectionOption
-  | { label: string, key: string | number, onSelect: () => void }
-  >
-  | undefined,
+    | Array<
+      | DataTableSelectionOption
+      | {
+        label: string
+        key: string | number
+        onSelect: (pageData: InternalRowData[]) => void
+      }
+    >
+    | undefined,
   localeRef: NLocale['DataTable']
 ): Array<{ label: string, key: string | number }> {
-  if (!options) return []
+  if (!options)
+    return []
   return options.map((option) => {
     switch (option) {
       case 'all':
@@ -82,46 +86,49 @@ export default defineComponent({
       required: true
     }
   },
-  setup () {
+  setup(props) {
     const {
+      props: dataTableProps,
       localeRef,
       checkOptionsRef,
       rawPaginatedDataRef,
       doCheckAll,
       doUncheckAll
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     } = inject(dataTableInjectionKey)!
-    return {
-      handleSelect: computed(() =>
-        createSelectHandler(
-          checkOptionsRef.value,
-          rawPaginatedDataRef,
-          doCheckAll,
-          doUncheckAll
-        )
-      ),
-      options: computed(() =>
-        createDropdownOptions(checkOptionsRef.value, localeRef.value)
+    const handleSelectRef = computed(() =>
+      createSelectHandler(
+        checkOptionsRef.value,
+        rawPaginatedDataRef,
+        doCheckAll,
+        doUncheckAll
+      )
+    )
+    const optionsRef = computed(() =>
+      createDropdownOptions(checkOptionsRef.value, localeRef.value)
+    )
+    return () => {
+      const { clsPrefix } = props
+      return (
+        <NDropdown
+          theme={dataTableProps.theme?.peers?.Dropdown}
+          themeOverrides={dataTableProps.themeOverrides?.peers?.Dropdown}
+          options={optionsRef.value}
+          onSelect={handleSelectRef.value}
+        >
+          {{
+            default: () => (
+              <NBaseIcon
+                clsPrefix={clsPrefix}
+                class={`${clsPrefix}-data-table-check-extra`}
+              >
+                {{
+                  default: () => <ChevronDownIcon />
+                }}
+              </NBaseIcon>
+            )
+          }}
+        </NDropdown>
       )
     }
-  },
-  render () {
-    const { clsPrefix } = this
-    return (
-      <NDropdown options={this.options} onSelect={this.handleSelect}>
-        {{
-          default: () => (
-            <NBaseIcon
-              clsPrefix={clsPrefix}
-              class={`${clsPrefix}-data-table-check-extra`}
-            >
-              {{
-                default: () => <ChevronDownIcon />
-              }}
-            </NBaseIcon>
-          )
-        }}
-      </NDropdown>
-    )
   }
 })

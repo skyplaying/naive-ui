@@ -1,11 +1,11 @@
-import { commonDark } from '../../_styles/common'
 import type { CodeTheme } from './light'
+import { commonDark } from '../../_styles/common'
 
 const codeDark: CodeTheme = {
   name: 'Code',
   common: commonDark,
-  self (vars) {
-    const { textColor2, fontSize, fontWeightStrong } = vars
+  self(vars) {
+    const { textColor2, fontSize, fontWeightStrong, textColor3 } = vars
     return {
       textColor: textColor2,
       fontSize,
@@ -19,7 +19,9 @@ const codeDark: CodeTheme = {
       'hue-5': '#e06c75',
       'hue-5-2': '#be5046',
       'hue-6': '#d19a66',
-      'hue-6-2': '#e6c07b'
+      'hue-6-2': '#e6c07b',
+      // line-number styles
+      lineNumberTextColor: textColor3
     }
   }
 }

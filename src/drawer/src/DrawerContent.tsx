@@ -1,18 +1,27 @@
-import { CSSProperties, defineComponent, h, inject, PropType } from 'vue'
-import { NBaseClose } from '../../_internal'
-import { NScrollbar } from '../../scrollbar'
-import type { ScrollbarProps } from '../../scrollbar'
-import { throwError } from '../../_utils'
+import type { ScrollbarProps } from '../../_internal'
 import type { ExtractPublicPropTypes } from '../../_utils'
+import {
+  type CSSProperties,
+  defineComponent,
+  h,
+  inject,
+  type PropType,
+  type SlotsType,
+  type VNode
+} from 'vue'
+import { NBaseClose, NScrollbar } from '../../_internal'
+import { throwError } from '../../_utils'
 import { drawerInjectionKey } from './interface'
 
-const drawerContentProps = {
-  title: {
-    type: String
-  },
+export const drawerContentProps = {
+  title: String,
+  headerClass: String,
   headerStyle: [Object, String] as PropType<string | CSSProperties>,
+  footerClass: String,
   footerStyle: [Object, String] as PropType<string | CSSProperties>,
+  bodyClass: String,
   bodyStyle: [Object, String] as PropType<string | CSSProperties>,
+  bodyContentClass: String,
   bodyContentStyle: [Object, String] as PropType<string | CSSProperties>,
   nativeScrollbar: { type: Boolean, default: true },
   scrollbarProps: Object as PropType<ScrollbarProps>,
@@ -23,10 +32,17 @@ export type DrawerContentProps = ExtractPublicPropTypes<
   typeof drawerContentProps
 >
 
+export interface DrawerContentSlots {
+  default?: () => VNode[]
+  header?: () => VNode[]
+  footer?: () => VNode[]
+}
+
 export default defineComponent({
   name: 'DrawerContent',
   props: drawerContentProps,
-  setup () {
+  slots: Object as SlotsType<DrawerContentSlots>,
+  setup() {
     const NDrawer = inject(drawerInjectionKey, null)
     if (!NDrawer) {
       throwError(
@@ -35,7 +51,7 @@ export default defineComponent({
       )
     }
     const { doUpdateShow } = NDrawer
-    function handleCloseClick (): void {
+    function handleCloseClick(): void {
       doUpdateShow(false)
     }
     return {
@@ -44,15 +60,19 @@ export default defineComponent({
       mergedClsPrefix: NDrawer.mergedClsPrefixRef
     }
   },
-  render () {
+  render() {
     const {
       title,
       mergedClsPrefix,
       nativeScrollbar,
       mergedTheme,
+      bodyClass,
       bodyStyle,
+      bodyContentClass,
       bodyContentStyle,
+      headerClass,
       headerStyle,
+      footerClass,
       footerStyle,
       scrollbarProps,
       closable,
@@ -60,16 +80,24 @@ export default defineComponent({
     } = this
     return (
       <div
+        role="none"
         class={[
           `${mergedClsPrefix}-drawer-content`,
-          nativeScrollbar &&
-            `${mergedClsPrefix}-drawer-content--native-scrollbar`
+          nativeScrollbar
+          && `${mergedClsPrefix}-drawer-content--native-scrollbar`
         ]}
-        style={headerStyle}
       >
         {$slots.header || title || closable ? (
-          <div class={`${mergedClsPrefix}-drawer-header`}>
-            <div class={`${mergedClsPrefix}-drawer-header__main`}>
+          <div
+            class={[`${mergedClsPrefix}-drawer-header`, headerClass]}
+            style={headerStyle}
+            role="none"
+          >
+            <div
+              class={`${mergedClsPrefix}-drawer-header__main`}
+              role="heading"
+              aria-level="1"
+            >
               {$slots.header !== undefined ? $slots.header() : title}
             </div>
             {closable && (
@@ -77,15 +105,24 @@ export default defineComponent({
                 onClick={this.handleCloseClick}
                 clsPrefix={mergedClsPrefix}
                 class={`${mergedClsPrefix}-drawer-header__close`}
+                absolute
               />
             )}
           </div>
         ) : null}
         {nativeScrollbar ? (
-          <div class={`${mergedClsPrefix}-drawer-body`} style={bodyStyle}>
+          <div
+            class={[`${mergedClsPrefix}-drawer-body`, bodyClass]}
+            style={bodyStyle}
+            role="none"
+          >
             <div
-              class={`${mergedClsPrefix}-drawer-body-content-wrapper`}
+              class={[
+                `${mergedClsPrefix}-drawer-body-content-wrapper`,
+                bodyContentClass
+              ]}
               style={bodyContentStyle}
+              role="none"
             >
               {$slots}
             </div>
@@ -96,14 +133,21 @@ export default defineComponent({
             theme={mergedTheme.peers.Scrollbar}
             {...scrollbarProps}
             class={`${mergedClsPrefix}-drawer-body`}
-            contentClass={`${mergedClsPrefix}-drawer-body-content-wrapper`}
+            contentClass={[
+              `${mergedClsPrefix}-drawer-body-content-wrapper`,
+              bodyContentClass
+            ]}
             contentStyle={bodyContentStyle}
           >
             {$slots}
           </NScrollbar>
         )}
         {$slots.footer ? (
-          <div class={`${mergedClsPrefix}-drawer-footer`} style={footerStyle}>
+          <div
+            class={[`${mergedClsPrefix}-drawer-footer`, footerClass]}
+            style={footerStyle}
+            role="none"
+          >
             {$slots.footer()}
           </div>
         ) : null}

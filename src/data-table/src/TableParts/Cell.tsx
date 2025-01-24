@@ -1,12 +1,22 @@
-import { defineComponent, PropType, VNodeChild, h } from 'vue'
 import type { MergedTheme } from '../../../_mixins'
-import { NEllipsis } from '../../../ellipsis'
-import { TableBaseColumn, InternalRowData, SummaryCell } from '../interface'
 import type { DataTableTheme } from '../../styles'
+import type {
+  InternalRowData,
+  SummaryCell,
+  TableBaseColumn
+} from '../interface'
+import { get } from 'lodash-es'
+import { defineComponent, h, type PropType, type VNodeChild } from 'vue'
+import NEllipsis from '../../../ellipsis/src/Ellipsis'
+import { NPerformantEllipsis } from '../../../ellipsis/src/PerformantEllipsis'
 
 export default defineComponent({
   name: 'DataTableCell',
   props: {
+    clsPrefix: {
+      type: String,
+      required: true
+    },
     row: {
       type: Object as PropType<InternalRowData>,
       required: true
@@ -23,36 +33,59 @@ export default defineComponent({
     mergedTheme: {
       type: Object as PropType<MergedTheme<DataTableTheme>>,
       required: true
-    }
+    },
+    renderCell: Function as PropType<
+      (value: any, rowData: object, column: any) => VNodeChild
+    >
   },
-  render () {
-    const {
-      isSummary,
-      column: { render, key, ellipsis },
-      row
-    } = this
+  render() {
+    const { isSummary, column, row, renderCell } = this
     let cell: VNodeChild
+    const { render, key, ellipsis } = column
     if (render && !isSummary) {
       cell = render(row, this.index)
-    } else {
+    }
+    else {
       if (isSummary) {
-        cell = (row[key] as SummaryCell).value
-      } else {
-        cell = row[key] as any
+        cell = (row[key] as SummaryCell)?.value
+      }
+      else {
+        cell = renderCell
+          ? renderCell(get(row, key), row, column)
+          : get(row, key)
       }
     }
-    const tooltip = typeof ellipsis === 'object' ? ellipsis.tooltip : undefined
-    if (tooltip) {
-      const { mergedTheme } = this
-      return (
-        <NEllipsis
-          tooltip={tooltip}
-          theme={mergedTheme.peers.Ellipsis}
-          themeOverrides={mergedTheme.peerOverrides.Ellipsis}
-        >
-          {{ default: () => cell }}
-        </NEllipsis>
-      )
+    if (ellipsis) {
+      if (typeof ellipsis === 'object') {
+        const { mergedTheme } = this
+        if (column.ellipsisComponent === 'performant-ellipsis') {
+          return (
+            <NPerformantEllipsis
+              {...ellipsis}
+              theme={mergedTheme.peers.Ellipsis}
+              themeOverrides={mergedTheme.peerOverrides.Ellipsis}
+            >
+              {{ default: () => cell }}
+            </NPerformantEllipsis>
+          )
+        }
+        return (
+          <NEllipsis
+            {...ellipsis}
+            theme={mergedTheme.peers.Ellipsis}
+            themeOverrides={mergedTheme.peerOverrides.Ellipsis}
+          >
+            {{ default: () => cell }}
+          </NEllipsis>
+        )
+      }
+      else {
+        return (
+          <span class={`${this.clsPrefix}-data-table-td__ellipsis`}>
+            {cell}
+          </span>
+        )
+      }
     }
     return cell
   }

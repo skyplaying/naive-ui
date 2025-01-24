@@ -1,20 +1,20 @@
-import { pxfy } from 'seemly'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import type { SkeletonTheme } from '../styles'
+import { pxfy, repeat } from 'seemly'
 import {
   computed,
   defineComponent,
-  h,
-  PropType,
   Fragment,
-  mergeProps
+  h,
+  mergeProps,
+  type PropType
 } from 'vue'
-import { ThemeProps, useConfig, useTheme } from '../../_mixins'
+import { type ThemeProps, useConfig, useTheme } from '../../_mixins'
 import { createKey, useHoudini } from '../../_utils'
-import type { ExtractPublicPropTypes } from '../../_utils'
-import type { SkeletonTheme } from '../styles'
 import { skeletonLight } from '../styles'
 import style from './styles/index.cssr'
 
-const skeletonProps = {
+export const skeletonProps = {
   ...(useTheme.props as ThemeProps<SkeletonTheme>),
   text: Boolean,
   round: Boolean,
@@ -42,12 +42,12 @@ export default defineComponent({
   name: 'Skeleton',
   inheritAttrs: false,
   props: skeletonProps,
-  setup (props) {
+  setup(props) {
     useHoudini()
     const { mergedClsPrefixRef } = useConfig(props)
     const themeRef = useTheme(
       'Skeleton',
-      'Skeleton',
+      '-skeleton',
       style,
       skeletonLight,
       props,
@@ -63,21 +63,13 @@ export default defineComponent({
         const selfThemeVars = theme.self
         const { color, colorEnd, borderRadius } = selfThemeVars
         let sizeHeight: string | undefined
-        const {
-          circle,
-          sharp,
-          round,
-          width,
-          height,
-          size,
-          text,
-          animated
-        } = props
+        const { circle, sharp, round, width, height, size, text, animated }
+          = props
         if (size !== undefined) {
           sizeHeight = selfThemeVars[createKey('height', size)]
         }
-        const mergedWidth = circle ? width ?? height ?? sizeHeight : width
-        const mergedHeight = (circle ? width ?? height : height) ?? sizeHeight
+        const mergedWidth = circle ? (width ?? height ?? sizeHeight) : width
+        const mergedHeight = (circle ? (width ?? height) : height) ?? sizeHeight
         return {
           display: text ? 'inline-block' : '',
           verticalAlign: text ? '-0.125em' : '',
@@ -95,15 +87,15 @@ export default defineComponent({
               ? pxfy(mergedHeight)
               : mergedHeight,
           animation: !animated ? 'none' : '',
-          '--bezier': cubicBezierEaseInOut,
-          '--color-start': color,
-          '--color-end': colorEnd
+          '--n-bezier': cubicBezierEaseInOut,
+          '--n-color-start': color,
+          '--n-color-end': colorEnd
         }
       })
     }
   },
-  render () {
-    const { repeat, style, mergedClsPrefix, $attrs } = this
+  render() {
+    const { repeat: repeatProp, style, mergedClsPrefix, $attrs } = this
     // BUG:
     // Chrome devtools can't read the element
     // Maybe it's a bug of chrome
@@ -112,20 +104,13 @@ export default defineComponent({
       mergeProps(
         {
           class: `${mergedClsPrefix}-skeleton`,
-          style: style
+          style
         },
         $attrs
       )
     )
-    if (repeat > 1) {
-      return (
-        <>
-          {Array.apply(null, { length: repeat } as any).map((_) => [
-            child,
-            '\n'
-          ])}
-        </>
-      )
+    if (repeatProp > 1) {
+      return <>{repeat(repeatProp, null).map(_ => [child, '\n'])}</>
     }
     return child
   }

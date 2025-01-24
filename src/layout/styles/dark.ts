@@ -1,7 +1,7 @@
-import { commonDark } from '../../_styles/common'
-import { scrollbarDark } from '../../scrollbar/styles'
 import type { LayoutTheme } from './light'
 import { composite } from 'seemly'
+import { scrollbarDark } from '../../_internal/scrollbar/styles'
+import { commonDark } from '../../_styles/common'
 
 const layoutDark: LayoutTheme = {
   name: 'Layout',
@@ -9,10 +9,11 @@ const layoutDark: LayoutTheme = {
   peers: {
     Scrollbar: scrollbarDark
   },
-  self (vars) {
+  self(vars) {
     const {
       textColor2,
       bodyColor,
+      popoverColor,
       cardColor,
       dividerColor,
       scrollbarColor,
@@ -35,7 +36,10 @@ const layoutDark: LayoutTheme = {
       siderBorderColorInverted: dividerColor,
       siderColor: cardColor,
       siderColorInverted: cardColor,
-      siderToggleButtonColor: 'rgba(255, 255, 255, .3)',
+      siderToggleButtonBorder: '1px solid transparent',
+      siderToggleButtonColor: popoverColor,
+      siderToggleButtonIconColor: textColor2,
+      siderToggleButtonIconColorInverted: textColor2,
       siderToggleBarColor: composite(bodyColor, scrollbarColor),
       siderToggleBarColorHover: composite(bodyColor, scrollbarColorHover),
       __invertScrollbar: 'false'

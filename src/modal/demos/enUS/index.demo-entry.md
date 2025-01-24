@@ -2,51 +2,107 @@
 
 It just pops and shows you something.
 
+<n-alert title="Prerequisite" type="warning" :bordered="false">
+  If you want to create modal using <n-text code>useModal</n-text>, you need to wrap the component where you call related methods inside <n-text code>n-modal-provider</n-text> and use <n-text code>useModal</n-text> to get the API.
+</n-alert>
+
+For example:
+
+```html
+<!-- App.vue -->
+<n-modal-provider>
+  <content />
+</n-modal-provider>
+```
+
 ## Demos
 
 ```demo
-basic
-controlled
-mask-closable
-custom-position
-preset-card
-preset-confirm
-preset-confirm-slot
+basic.vue
+reactive.vue
+controlled.vue
+mask-closable.vue
+custom-position.vue
+preset-card.vue
+preset-confirm.vue
+preset-confirm-slot.vue
+transform-origin.vue
+draggable.vue
 ```
 
-## Props
+## API
 
-### Modal
+### ModalProvider Props
 
-| Name | Type | Default | Description |
+Provided since `2.38.0`.
+
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| to | `string \| HTMLElement` | `body` | Container node of the modal content. | 2.38.0 |
+
+### useModal API
+
+Provided since `2.38.0`.
+
+| Name | Type | Description | Version |
 | --- | --- | --- | --- |
-| display-directive | `'if' \| 'show'` | `'if'` | Use which directive to control the rendering of modal body. |
-| mask-closable | `boolean` | `true` | Whether to emit `hide` event when click mask. |
-| preset | `'card' \| 'confirm'` | `undefined` |  |
-| show | `boolean` | `false` | Whether to show modal. |
-| show-mask | `boolean` | `true` | Whether to show mask of the modal. |
-| on-update:show | `(value: boolean) => void` | `undefined` | Callback when modal's display status is changed. |
+| create | `(options: ModalOptions) => ModalReactive` | Create a modal. | 2.38.0 |
+| destroyAll | `() => void` | Destroy all modals. | 2.38.0 |
 
-### Modal with Preset Card
+`ModalOptions` and `ModalReactive`'s properties are the same as `ModalProps` (properties should use camelCase, for example `auto-focus` property should use `autoFocus` as option property).
 
-See [Card props](card#Props)
+### Modal Props
 
-### Modal with Preset Dialog
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| auto-focus | `boolean` | `true` | Whether to focus the first focusable element inside modal. | 2.24.2 |
+| block-scroll | `boolean` | `true` | Whether to disabled body scrolling when it's active. | 2.28.3 |
+| close-on-esc | `boolean` | `true` | Whether to close modal on Esc is pressed. | 2.24.2 |
+| display-directive | `'if' \| 'show'` | `'if'` | Use which directive to control the rendering of modal body. |  |
+| draggable | `boolean \| { bounds?: 'window' }` | `false` | Whether the modal is draggable. Make its position not bound inside window using `bounds === 'none'`. | 2.41.0 |
+| mask-closable | `boolean` | `true` | Whether to emit `hide` event when click mask. |  |
+| preset | `'dialog' \| 'card'` | `undefined` | The preset of `n-modal`. |  |
+| show | `boolean` | `false` | Whether to show modal. |  |
+| to | `string \| HTMLElement` | `body` | Container node of the modal content. |  |
+| transform-origin | `'mouse' \| 'center'` | `'mouse'` | The transform origin of the modal's display animation. |  |
+| trap-focus | `boolean` | `true` | Whether to trap focus inside modal. | 2.24.2 |
+| z-index | `number` | `undefined` | Z index of the modal. | 2.24.0 |
+| on-after-enter | `() => void` | `undefined` | Callback after modal is opened. |  |
+| on-after-leave | `() => void` | `undefined` | Callback after modal is closed. |  |
+| on-esc | `() => void` | `undefined` | Callback fired when the escape key is pressed and focus is within modal. | 2.24.2 |
+| on-mask-click | `() => void` | `undefined` | Callback on mask is clicked. |  |
+| on-update:show | `(value: boolean) => void` | `undefined` | Callback when modal's display status is changed. |  |
 
-See [Dialog props](dialog#Props)
+### ModalProvider Props
 
-## Slots
+Provided since 2.38.0.
 
-### Modal without Preset
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| to | `string \| HTMLElement` | `body` | Container node of the modal content. | 2.38.0 |
 
-| Name    | Parameters | Description |
-| ------- | ---------- | ----------- |
-| default | `()`       |             |
+### Modal with Preset Card Props
 
-### Modal with Preset Card
+See [Card props](card#Card-Props)
 
-See [Card slots](card#Slots)
+### Modal with Preset Dialog Props
 
-### Modal with Preset Dialog
+See [Dialog props](dialog#Dialog-Props)
 
-See [Dialog slots](dialog#Slots)
+### Modal without Preset Slots
+
+| Name    | Parameters | Description               |
+| ------- | ---------- | ------------------------- |
+| default | `()`       | The content of the modal. |
+
+### Modal with Preset Card Slots
+
+See [Card slots](card#Card-Slots)
+
+`default` slot's parameter is different, which is `(props: { draggableClass: string })`.
+
+### Modal with Preset Dialog Slots
+
+See [Dialog slots](dialog#Dialog-Slots)
+
+`default` slot's parameter is different, which is `(props: { draggableClass: string })`.

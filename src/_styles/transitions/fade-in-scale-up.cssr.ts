@@ -1,11 +1,10 @@
-import { CNode } from 'css-render'
+import type { CNode } from 'css-render'
 import { c } from '../../_utils/cssr'
 import commonVariables from '../common/_common'
 
 const {
   cubicBezierEaseIn,
-  cubicBezierEaseOut,
-  transformDebounceScale
+  cubicBezierEaseOut
 } = commonVariables
 
 interface FadeInScaleUpTransitionOptions {
@@ -16,7 +15,7 @@ interface FadeInScaleUpTransitionOptions {
   originalTransition?: string
 }
 
-export default function ({
+export function fadeInScaleUpTransition({
   transformOrigin = 'inherit',
   duration = '.2s',
   enterScale = '.9',
@@ -27,22 +26,22 @@ export default function ({
     c('&.fade-in-scale-up-transition-leave-active', {
       transformOrigin,
       transition: `opacity ${duration} ${cubicBezierEaseIn}, transform ${duration} ${cubicBezierEaseIn} ${
-        originalTransition && ',' + originalTransition
+        originalTransition && `,${originalTransition}`
       }`
     }),
     c('&.fade-in-scale-up-transition-enter-active', {
       transformOrigin,
       transition: `opacity ${duration} ${cubicBezierEaseOut}, transform ${duration} ${cubicBezierEaseOut} ${
-        originalTransition && ',' + originalTransition
+        originalTransition && `,${originalTransition}`
       }`
     }),
     c('&.fade-in-scale-up-transition-enter-from, &.fade-in-scale-up-transition-leave-to', {
       opacity: 0,
-      transform: `scale(${enterScale}) ${originalTransform}`
+      transform: `${originalTransform} scale(${enterScale})`
     }),
     c('&.fade-in-scale-up-transition-leave-from, &.fade-in-scale-up-transition-enter-to', {
       opacity: 1,
-      transform: `scale(${transformDebounceScale}) ${originalTransform}`
+      transform: `${originalTransform} scale(1)`
     })
   ]
 }

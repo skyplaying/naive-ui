@@ -1,12 +1,12 @@
-import { h, ref, defineComponent } from 'vue'
-import NGridItem, {
-  gridItemProps,
-  gridItemPropKeys
-} from '../../grid/src/GridItem'
-import { keep, keysOf } from '../../_utils'
 import type { ExtractPublicPropTypes } from '../../_utils'
-import NFormItem, { formItemProps, formItemPropKeys } from './FormItem'
-import { FormItemInst } from './interface'
+import type { FormItemInst } from './interface'
+import { defineComponent, h, ref } from 'vue'
+import { keep, keysOf } from '../../_utils'
+import NGridItem, {
+  gridItemPropKeys,
+  gridItemProps
+} from '../../grid/src/GridItem'
+import NFormItem, { formItemPropKeys, formItemProps } from './FormItem'
 
 export const formItemGiProps = {
   ...gridItemProps,
@@ -22,7 +22,7 @@ export default defineComponent({
   name: 'FormItemGridItem',
   alias: ['FormItemGi'],
   props: formItemGiProps,
-  setup (props) {
+  setup() {
     const formItemInstRef = ref<FormItemInst | null>(null)
     const validate: FormItemInst['validate'] = ((...args: any[]) => {
       const { value } = formItemInstRef
@@ -33,16 +33,17 @@ export default defineComponent({
     const restoreValidation: FormItemInst['restoreValidation'] = () => {
       const { value } = formItemInstRef
       if (value) {
-        return value.restoreValidation()
+        value.restoreValidation()
       }
     }
     return {
+      formItemInstRef,
       validate,
       restoreValidation
     }
   },
-  render () {
-    return h(NGridItem, keep(this.$props, gridItemPropKeys), {
+  render() {
+    return h(NGridItem, keep(this.$.vnode.props || {}, gridItemPropKeys), {
       default: () => {
         const itemProps = keep(this.$props, formItemPropKeys)
         return h(

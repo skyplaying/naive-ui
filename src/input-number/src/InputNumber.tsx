@@ -1,44 +1,69 @@
-import { h, defineComponent, ref, toRef, watch, computed, PropType } from 'vue'
+import type { ThemeProps } from '../../_mixins'
+import type { FormValidationStatus } from '../../form/src/interface'
+import type { InputInst } from '../../input'
+import type { InputNumberTheme } from '../styles'
+import type { InputNumberInst, OnUpdateValue, Size } from './interface'
+import { on } from 'evtd'
 import { rgba } from 'seemly'
 import { useMemo, useMergedState } from 'vooks'
-import { RemoveIcon, AddIcon } from '../../_internal/icons'
-import { NInput } from '../../input'
-import type { InputInst } from '../../input'
+import {
+  computed,
+  defineComponent,
+  h,
+  type InputHTMLAttributes,
+  nextTick,
+  type PropType,
+  ref,
+  type SlotsType,
+  toRef,
+  type VNode,
+  watch,
+  watchEffect
+} from 'vue'
 import { NBaseIcon } from '../../_internal'
-import { NButton } from '../../button'
-import { useTheme, useFormItem, useLocale, useConfig } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
-import { warn, call, MaybeArray, ExtractPublicPropTypes } from '../../_utils'
-import { inputNumberLight, InputNumberTheme } from '../styles'
-import { parse, validator, format, parseNumber } from './utils'
+import { AddIcon, RemoveIcon } from '../../_internal/icons'
+import { useConfig, useFormItem, useLocale, useTheme } from '../../_mixins'
+import { useRtl } from '../../_mixins/use-rtl'
+import {
+  call,
+  type ExtractPublicPropTypes,
+  type MaybeArray,
+  resolveSlot,
+  resolveWrappedSlot,
+  warnOnce
+} from '../../_utils'
+import { NxButton } from '../../button'
+import { NInput } from '../../input'
+import { inputNumberLight } from '../styles'
+import style from './styles/input-number.cssr'
+import { format, isWipValue, parse, parseNumber, validator } from './utils'
 
-const inputNumberProps = {
+const HOLDING_CHANGE_THRESHOLD = 800
+const HOLDING_CHANGE_INTERVAL = 100
+
+export const inputNumberProps = {
   ...(useTheme.props as ThemeProps<InputNumberTheme>),
+  autofocus: Boolean,
+  loading: {
+    type: Boolean,
+    default: undefined
+  },
   placeholder: String,
   defaultValue: {
     type: Number as PropType<number | null>,
     default: null
   },
-  value: {
-    type: Number,
-    default: undefined
-  },
+  value: Number as PropType<number | null>,
   step: {
     type: [Number, String],
     default: 1
   },
-  min: {
-    type: [Number, String],
-    default: undefined
-  },
-  max: {
-    type: [Number, String],
-    default: undefined
-  },
-  size: String as PropType<'small' | 'medium' | 'large'>,
+  min: [Number, String],
+  max: [Number, String],
+  size: String as PropType<Size>,
   disabled: {
-    type: Boolean,
-    default: false
+    type: Boolean as PropType<boolean | undefined>,
+    default: undefined
   },
   validator: Function as PropType<(value: number) => boolean>,
   bordered: {
@@ -49,47 +74,78 @@ const inputNumberProps = {
     type: Boolean,
     default: true
   },
-  // eslint-disable-next-line vue/prop-name-casing
-  'onUpdate:value': [Function, Array] as PropType<
-  MaybeArray<(value: number) => void>
-  >,
+  buttonPlacement: {
+    type: String as PropType<'right' | 'both'>,
+    default: 'right'
+  },
+  inputProps: Object as PropType<InputHTMLAttributes>,
+  readonly: Boolean,
+  clearable: Boolean,
+  keyboard: {
+    type: Object as PropType<{
+      ArrowUp?: boolean
+      ArrowDown?: boolean
+    }>,
+    default: {}
+  },
+  updateValueOnInput: {
+    type: Boolean,
+    default: true
+  },
+  round: {
+    type: Boolean as PropType<boolean | undefined>,
+    default: undefined
+  },
+  parse: Function as PropType<(input: string) => number | null>,
+  format: Function as PropType<(value: number | null) => string>,
+  precision: Number,
+  status: String as PropType<FormValidationStatus>,
+  'onUpdate:value': [Function, Array] as PropType<MaybeArray<OnUpdateValue>>,
+  onUpdateValue: [Function, Array] as PropType<MaybeArray<OnUpdateValue>>,
   onFocus: [Function, Array] as PropType<MaybeArray<(e: FocusEvent) => void>>,
   onBlur: [Function, Array] as PropType<MaybeArray<(e: FocusEvent) => void>>,
+  onClear: [Function, Array] as PropType<MaybeArray<(e: MouseEvent) => void>>,
   // deprecated
-  onChange: {
-    type: [Function, Array] as PropType<
-    MaybeArray<(value: number) => void> | undefined
-    >,
-    validator: () => {
-      if (__DEV__) {
-        warn(
-          'input-number',
-          '`on-change` is deprecated, please use `on-update:value` instead.'
-        )
-      }
-      return true
-    },
-    default: undefined
-  }
+  onChange: [Function, Array] as PropType<MaybeArray<OnUpdateValue>>
 }
 
 export type InputNumberProps = ExtractPublicPropTypes<typeof inputNumberProps>
 
+export interface InputNumberSlots {
+  'add-icon'?: () => VNode[]
+  'minus-icon'?: () => VNode[]
+  prefix?: () => VNode[]
+  suffix?: () => VNode[]
+}
+
 export default defineComponent({
   name: 'InputNumber',
   props: inputNumberProps,
-  setup (props) {
-    const { mergedBorderedRef, mergedClsPrefixRef } = useConfig(props)
+  slots: Object as SlotsType<InputNumberSlots>,
+  setup(props) {
+    if (__DEV__) {
+      watchEffect(() => {
+        if (props.onChange !== undefined) {
+          warnOnce(
+            'input-number',
+            '`on-change` is deprecated, please use `on-update:value` instead'
+          )
+        }
+      })
+    }
+    const { mergedBorderedRef, mergedClsPrefixRef, mergedRtlRef }
+      = useConfig(props)
     const themeRef = useTheme(
       'InputNumber',
-      'InputNumber',
-      undefined,
+      '-input-number',
+      style,
       inputNumberLight,
       props,
       mergedClsPrefixRef
     )
     const { localeRef } = useLocale('InputNumber')
     const formItem = useFormItem(props)
+    const { mergedSizeRef, mergedDisabledRef, mergedStatusRef } = formItem
     // dom ref
     const inputInstRef = ref<InputInst | null>(null)
     const minusButtonInstRef = ref<{ $el: HTMLElement } | null>(null)
@@ -102,9 +158,24 @@ export default defineComponent({
       uncontrolledValueRef
     )
     const displayedValueRef = ref('')
+    const getPrecision = (value: string | number): number => {
+      const fraction = String(value).split('.')[1]
+      return fraction ? fraction.length : 0
+    }
+    const getMaxPrecision = (currentValue: number): number => {
+      const precisions = [props.min, props.max, props.step, currentValue].map(
+        (value): number => {
+          if (value === undefined)
+            return 0
+          return getPrecision(value)
+        }
+      )
+      return Math.max(...precisions)
+    }
     const mergedPlaceholderRef = useMemo(() => {
       const { placeholder } = props
-      if (placeholder !== undefined) return placeholder
+      if (placeholder !== undefined)
+        return placeholder
       return localeRef.value.placeholder
     })
     const mergedStepRef = useMemo(() => {
@@ -116,65 +187,133 @@ export default defineComponent({
     })
     const mergedMinRef = useMemo(() => {
       const parsedNumber = parseNumber(props.min)
-      if (parsedNumber !== null) return parsedNumber
+      if (parsedNumber !== null)
+        return parsedNumber
       else return null
     })
     const mergedMaxRef = useMemo(() => {
       const parsedNumber = parseNumber(props.max)
-      if (parsedNumber !== null) return parsedNumber
+      if (parsedNumber !== null)
+        return parsedNumber
       else return null
     })
-    const doUpdateValue = (value: number): void => {
+    const deriveDisplayedValueFromValue = (): void => {
       const { value: mergedValue } = mergedValueRef
-      if (value === mergedValue) return
-      const { 'onUpdate:value': onUpdateValue, onChange } = props
+      if (validator(mergedValue)) {
+        const { format: formatProp, precision } = props
+        if (formatProp) {
+          displayedValueRef.value = formatProp(mergedValue)
+        }
+        else {
+          if (
+            mergedValue === null
+            || precision === undefined
+            // precision overflow
+            || getPrecision(mergedValue) > precision
+          ) {
+            displayedValueRef.value = format(mergedValue, undefined)
+          }
+          else {
+            displayedValueRef.value = format(mergedValue, precision)
+          }
+        }
+      }
+      else {
+        // null can pass the validator check
+        // so mergedValue is a number
+        displayedValueRef.value = String(mergedValue)
+      }
+    }
+    deriveDisplayedValueFromValue()
+    const doUpdateValue = (value: number | null): void => {
+      const { value: mergedValue } = mergedValueRef
+      if (value === mergedValue) {
+        deriveDisplayedValueFromValue()
+        return
+      }
+      const {
+        'onUpdate:value': _onUpdateValue,
+        onUpdateValue,
+        onChange
+      } = props
       const { nTriggerFormInput, nTriggerFormChange } = formItem
-      if (onChange) call(onChange, value)
-      if (onUpdateValue) call(onUpdateValue, value)
+      if (onChange)
+        call(onChange, value)
+      if (onUpdateValue)
+        call(onUpdateValue, value)
+      if (_onUpdateValue)
+        call(_onUpdateValue, value)
       uncontrolledValueRef.value = value
       nTriggerFormInput()
       nTriggerFormChange()
     }
-    const deriveValueFromDisplayedValue = (
-      offset = 0,
-      postUpdateIfValid = true
-    ): null | number | false => {
+    const deriveValueFromDisplayedValue = ({
+      offset,
+      doUpdateIfValid,
+      fixPrecision,
+      isInputing
+    }: {
+      offset: number
+      doUpdateIfValid: boolean
+      fixPrecision: boolean
+      isInputing: boolean
+    }): null | number | false => {
       const { value: displayedValue } = displayedValueRef
-      const parsedValue = parse(displayedValue)
-      if (parsedValue === null) return null
+      if (isInputing && isWipValue(displayedValue)) {
+        return false
+      }
+      const parsedValue = (props.parse || parse)(displayedValue)
+      if (parsedValue === null) {
+        if (doUpdateIfValid)
+          doUpdateValue(null)
+        return null
+      }
       if (validator(parsedValue)) {
-        let nextValue = parsedValue + offset
+        const currentPrecision = getPrecision(parsedValue)
+        const { precision } = props
+        if (
+          precision !== undefined
+          && precision < currentPrecision
+          && !fixPrecision
+        ) {
+          return false
+        }
+        let nextValue = Number.parseFloat(
+          (parsedValue + offset).toFixed(
+            precision ?? getMaxPrecision(parsedValue)
+          )
+        )
         if (validator(nextValue)) {
           const { value: mergedMax } = mergedMaxRef
           const { value: mergedMin } = mergedMinRef
           if (mergedMax !== null && nextValue > mergedMax) {
-            if (!postUpdateIfValid) return false
+            if (!doUpdateIfValid || isInputing)
+              return false
+            // if doUpdateIfValid=true, we try to make it a valid value
             nextValue = mergedMax
           }
           if (mergedMin !== null && nextValue < mergedMin) {
-            if (!postUpdateIfValid) return false
+            if (!doUpdateIfValid || isInputing)
+              return false
+            // if doUpdateIfValid=true, we try to make it a valid value
             nextValue = mergedMin
           }
-          if (props.validator && !props.validator(nextValue)) return false
-          if (postUpdateIfValid) doUpdateValue(nextValue)
+          if (props.validator && !props.validator(nextValue))
+            return false
+          if (doUpdateIfValid)
+            doUpdateValue(nextValue)
           return nextValue
         }
       }
       return false
     }
-    const deriveDisplayedValueFromValue = (): void => {
-      const { value: mergedValue } = mergedValueRef
-      if (validator(mergedValue)) {
-        displayedValueRef.value = format(mergedValue)
-      } else {
-        // null can pass the validator check
-        // so mergedValue is a number
-        displayedValueRef.value = String(mergedValue as number)
-      }
-    }
-    deriveDisplayedValueFromValue()
     const displayedValueInvalidRef = useMemo(() => {
-      const derivedValue = deriveValueFromDisplayedValue(0, false)
+      const derivedValue = deriveValueFromDisplayedValue({
+        offset: 0,
+        doUpdateIfValid: false,
+        isInputing: false,
+        fixPrecision: false
+      })
       return derivedValue === false
     })
     const minusableRef = useMemo(() => {
@@ -183,7 +322,12 @@ export default defineComponent({
         return false
       }
       const { value: mergedStep } = mergedStepRef
-      const derivedNextValue = deriveValueFromDisplayedValue(-mergedStep, false)
+      const derivedNextValue = deriveValueFromDisplayedValue({
+        offset: -mergedStep,
+        doUpdateIfValid: false,
+        isInputing: false,
+        fixPrecision: false
+      })
       return derivedNextValue !== false
     })
     const addableRef = useMemo(() => {
@@ -192,22 +336,33 @@ export default defineComponent({
         return false
       }
       const { value: mergedStep } = mergedStepRef
-      const derivedNextValue = deriveValueFromDisplayedValue(+mergedStep, false)
+      const derivedNextValue = deriveValueFromDisplayedValue({
+        offset: +mergedStep,
+        doUpdateIfValid: false,
+        isInputing: false,
+        fixPrecision: false
+      })
       return derivedNextValue !== false
     })
-    function doFocus (e: FocusEvent): void {
+    function doFocus(e: FocusEvent): void {
       const { onFocus } = props
       const { nTriggerFormFocus } = formItem
-      if (onFocus) call(onFocus, e)
+      if (onFocus)
+        call(onFocus, e)
       nTriggerFormFocus()
     }
-    function doBlur (e: FocusEvent): void {
+    function doBlur(e: FocusEvent): void {
       if (e.target === inputInstRef.value?.wrapperElRef) {
         // hit input wrapper
         // which means not activated
         return
       }
-      const value = deriveValueFromDisplayedValue()
+      const value = deriveValueFromDisplayedValue({
+        offset: 0,
+        doUpdateIfValid: true,
+        isInputing: false,
+        fixPrecision: true
+      })
       // If valid, update event has been emitted
       // make sure e.target.value is correct in blur callback
       if (value !== false) {
@@ -221,57 +376,94 @@ export default defineComponent({
         if (mergedValueRef.value === value) {
           deriveDisplayedValueFromValue()
         }
-      } else {
+      }
+      else {
         // If not valid, nothing will be emitted, so derive displayed value from
         // origin value
         deriveDisplayedValueFromValue()
       }
       const { onBlur } = props
       const { nTriggerFormBlur } = formItem
-      if (onBlur) call(onBlur, e)
+      if (onBlur)
+        call(onBlur, e)
       nTriggerFormBlur()
+      // User may change value in blur callback, we make sure it will be
+      // displayed. Sometimes mergedValue won't be viewed as changed
+      void nextTick(() => {
+        deriveDisplayedValueFromValue()
+      })
     }
-    function doAdd (): void {
+    function doClear(e: MouseEvent): void {
+      const { onClear } = props
+      if (onClear)
+        call(onClear, e)
+    }
+    function doAdd(): void {
       const { value: addable } = addableRef
-      if (!addable) return
+      if (!addable) {
+        clearAddHoldTimeout()
+        return
+      }
       const { value: mergedValue } = mergedValueRef
       if (mergedValue === null) {
         if (!props.validator) {
-          doUpdateValue(createValidValue() as number)
+          doUpdateValue(createValidValue())
         }
-      } else {
+      }
+      else {
         const { value: mergedStep } = mergedStepRef
-        deriveValueFromDisplayedValue(mergedStep)
+        deriveValueFromDisplayedValue({
+          offset: mergedStep,
+          doUpdateIfValid: true,
+          isInputing: false,
+          fixPrecision: true
+        })
       }
     }
-    function doMinus (): void {
+    function doMinus(): void {
       const { value: minusable } = minusableRef
-      if (!minusable) return
+      if (!minusable) {
+        clearMinusHoldTimeout()
+        return
+      }
       const { value: mergedValue } = mergedValueRef
       if (mergedValue === null) {
         if (!props.validator) {
-          doUpdateValue(createValidValue() as number)
+          doUpdateValue(createValidValue())
         }
-      } else {
+      }
+      else {
         const { value: mergedStep } = mergedStepRef
-        deriveValueFromDisplayedValue(-mergedStep)
+        deriveValueFromDisplayedValue({
+          offset: -mergedStep,
+          doUpdateIfValid: true,
+          isInputing: false,
+          fixPrecision: true
+        })
       }
     }
     const handleFocus = doFocus
     const handleBlur = doBlur
-    function createValidValue (): number | null {
-      if (props.validator) return null
+    function createValidValue(): number | null {
+      if (props.validator)
+        return null
       const { value: mergedMin } = mergedMinRef
       const { value: mergedMax } = mergedMaxRef
       if (mergedMin !== null) {
         return Math.max(0, mergedMin)
-      } else if (mergedMax !== null) {
+      }
+      else if (mergedMax !== null) {
         return Math.min(0, mergedMax)
-      } else {
+      }
+      else {
         return 0
       }
     }
-    function handleMouseDown (e: MouseEvent): void {
+    function handleClear(e: MouseEvent): void {
+      doClear(e)
+      doUpdateValue(null)
+    }
+    function handleMouseDown(e: MouseEvent): void {
       if (addButtonInstRef.value?.$el.contains(e.target as Node)) {
         e.preventDefault()
       }
@@ -280,38 +472,144 @@ export default defineComponent({
       }
       inputInstRef.value?.activate()
     }
-    const handleAddClick = doAdd
-    const handleMinusClick = doMinus
-    function handleKeyDown (e: KeyboardEvent): void {
-      if (e.code === 'Enter') {
+    let minusHoldStateIntervalId: number | null = null
+    let addHoldStateIntervalId: number | null = null
+    let firstMinusMousedownId: number | null = null
+    function clearMinusHoldTimeout(): void {
+      if (firstMinusMousedownId) {
+        window.clearTimeout(firstMinusMousedownId)
+        firstMinusMousedownId = null
+      }
+      if (minusHoldStateIntervalId) {
+        window.clearInterval(minusHoldStateIntervalId)
+        minusHoldStateIntervalId = null
+      }
+    }
+    let firstAddMousedownId: number | null = null
+    function clearAddHoldTimeout(): void {
+      if (firstAddMousedownId) {
+        window.clearTimeout(firstAddMousedownId)
+        firstAddMousedownId = null
+      }
+      if (addHoldStateIntervalId) {
+        window.clearInterval(addHoldStateIntervalId)
+        addHoldStateIntervalId = null
+      }
+    }
+    function handleMinusMousedown(): void {
+      clearMinusHoldTimeout()
+      firstMinusMousedownId = window.setTimeout(() => {
+        minusHoldStateIntervalId = window.setInterval(() => {
+          doMinus()
+        }, HOLDING_CHANGE_INTERVAL)
+      }, HOLDING_CHANGE_THRESHOLD)
+      on('mouseup', document, clearMinusHoldTimeout, {
+        once: true
+      })
+    }
+    function handleAddMousedown(): void {
+      clearAddHoldTimeout()
+      firstAddMousedownId = window.setTimeout(() => {
+        addHoldStateIntervalId = window.setInterval(() => {
+          doAdd()
+        }, HOLDING_CHANGE_INTERVAL)
+      }, HOLDING_CHANGE_THRESHOLD)
+      on('mouseup', document, clearAddHoldTimeout, {
+        once: true
+      })
+    }
+    const handleAddClick = (): void => {
+      if (addHoldStateIntervalId)
+        return
+      doAdd()
+    }
+    const handleMinusClick = (): void => {
+      if (minusHoldStateIntervalId)
+        return
+      doMinus()
+    }
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'Enter') {
         if (e.target === inputInstRef.value?.wrapperElRef) {
           // hit input wrapper
           // which means not activated
           return
         }
-        const value = deriveValueFromDisplayedValue()
+        const value = deriveValueFromDisplayedValue({
+          offset: 0,
+          doUpdateIfValid: true,
+          isInputing: false,
+          fixPrecision: true
+        })
         if (value !== false) {
           inputInstRef.value?.deactivate()
         }
-      } else if (e.code === 'ArrowUp') {
-        const value = deriveValueFromDisplayedValue()
+      }
+      else if (e.key === 'ArrowUp') {
+        if (!addableRef.value)
+          return
+        if (props.keyboard.ArrowUp === false)
+          return
+        e.preventDefault()
+        const value = deriveValueFromDisplayedValue({
+          offset: 0,
+          doUpdateIfValid: true,
+          isInputing: false,
+          fixPrecision: true
+        })
         if (value !== false) {
           doAdd()
         }
-      } else if (e.code === 'ArrowDown') {
-        const value = deriveValueFromDisplayedValue()
+      }
+      else if (e.key === 'ArrowDown') {
+        if (!minusableRef.value)
+          return
+        if (props.keyboard.ArrowDown === false)
+          return
+        e.preventDefault()
+        const value = deriveValueFromDisplayedValue({
+          offset: 0,
+          doUpdateIfValid: true,
+          isInputing: false,
+          fixPrecision: true
+        })
         if (value !== false) {
           doMinus()
         }
       }
     }
-    function handleUpdateDisplayedValue (value: string): void {
+    function handleUpdateDisplayedValue(value: string): void {
       displayedValueRef.value = value
+      if (
+        props.updateValueOnInput
+        && !props.format
+        && !props.parse
+        && props.precision === undefined
+      ) {
+        deriveValueFromDisplayedValue({
+          offset: 0,
+          doUpdateIfValid: true,
+          isInputing: true,
+          fixPrecision: false
+        })
+      }
     }
     watch(mergedValueRef, () => {
       deriveDisplayedValueFromValue()
     })
+    const exposedMethods: InputNumberInst = {
+      focus: () => inputInstRef.value?.focus(),
+      blur: () => inputInstRef.value?.blur(),
+      select: () => inputInstRef.value?.select()
+    }
+    const rtlEnabledRef = useRtl(
+      'InputNumber',
+      mergedRtlRef,
+      mergedClsPrefixRef
+    )
     return {
+      ...exposedMethods,
+      rtlEnabled: rtlEnabledRef,
       inputInstRef,
       minusButtonInstRef,
       addButtonInstRef,
@@ -321,15 +619,20 @@ export default defineComponent({
       mergedValue: mergedValueRef,
       mergedPlaceholder: mergedPlaceholderRef,
       displayedValueInvalid: displayedValueInvalidRef,
-      mergedSize: formItem.mergedSizeRef,
+      mergedSize: mergedSizeRef,
+      mergedDisabled: mergedDisabledRef,
       displayedValue: displayedValueRef,
       addable: addableRef,
       minusable: minusableRef,
+      mergedStatus: mergedStatusRef,
       handleFocus,
       handleBlur,
+      handleClear,
       handleMouseDown,
       handleAddClick,
       handleMinusClick,
+      handleAddMousedown,
+      handleMinusMousedown,
       handleKeyDown,
       handleUpdateDisplayedValue,
       // theme
@@ -351,22 +654,83 @@ export default defineComponent({
       })
     }
   },
-  render () {
-    const { mergedClsPrefix } = this
+  render() {
+    const { mergedClsPrefix, $slots } = this
+    const renderMinusButton = (): VNode => {
+      return (
+        <NxButton
+          text
+          disabled={!this.minusable || this.mergedDisabled || this.readonly}
+          focusable={false}
+          theme={this.mergedTheme.peers.Button}
+          themeOverrides={this.mergedTheme.peerOverrides.Button}
+          builtinThemeOverrides={this.buttonThemeOverrides}
+          onClick={this.handleMinusClick}
+          onMousedown={this.handleMinusMousedown}
+          ref="minusButtonInstRef"
+        >
+          {{
+            icon: () =>
+              resolveSlot($slots['minus-icon'], () => [
+                <NBaseIcon clsPrefix={mergedClsPrefix}>
+                  {{
+                    default: () => <RemoveIcon />
+                  }}
+                </NBaseIcon>
+              ])
+          }}
+        </NxButton>
+      )
+    }
+    const renderAddButton = (): VNode => {
+      return (
+        <NxButton
+          text
+          disabled={!this.addable || this.mergedDisabled || this.readonly}
+          focusable={false}
+          theme={this.mergedTheme.peers.Button}
+          themeOverrides={this.mergedTheme.peerOverrides.Button}
+          builtinThemeOverrides={this.buttonThemeOverrides}
+          onClick={this.handleAddClick}
+          onMousedown={this.handleAddMousedown}
+          ref="addButtonInstRef"
+        >
+          {{
+            icon: () =>
+              resolveSlot($slots['add-icon'], () => [
+                <NBaseIcon clsPrefix={mergedClsPrefix}>
+                  {{
+                    default: () => <AddIcon />
+                  }}
+                </NBaseIcon>
+              ])
+          }}
+        </NxButton>
+      )
+    }
     return (
-      <div class={`${mergedClsPrefix}-input-number`}>
+      <div
+        class={[
+          `${mergedClsPrefix}-input-number`,
+          this.rtlEnabled && `${mergedClsPrefix}-input-number--rtl`
+        ]}
+      >
         <NInput
           ref="inputInstRef"
+          autofocus={this.autofocus}
+          status={this.mergedStatus}
           bordered={this.mergedBordered}
+          loading={this.loading}
           value={this.displayedValue}
           onUpdateValue={this.handleUpdateDisplayedValue}
-          passively-activated
           theme={this.mergedTheme.peers.Input}
           themeOverrides={this.mergedTheme.peerOverrides.Input}
           builtinThemeOverrides={this.inputThemeOverrides}
           size={this.mergedSize}
           placeholder={this.mergedPlaceholder}
-          disabled={this.disabled}
+          disabled={this.mergedDisabled}
+          readonly={this.readonly as any}
+          round={this.round}
           textDecoration={
             this.displayedValueInvalid ? 'line-through' : undefined
           }
@@ -374,49 +738,52 @@ export default defineComponent({
           onBlur={this.handleBlur}
           onKeydown={this.handleKeyDown}
           onMousedown={this.handleMouseDown}
+          onClear={this.handleClear}
+          clearable={this.clearable}
+          inputProps={this.inputProps}
+          internalLoadingBeforeSuffix
         >
-          {this.showButton
-            ? {
-                suffix: () => [
-                  <NButton
-                    text
-                    disabled={!this.minusable || this.disabled}
-                    focusable={false}
-                    builtinThemeOverrides={this.buttonThemeOverrides}
-                    onClick={this.handleMinusClick}
-                    ref="minusButtonInstRef"
-                  >
-                    {{
-                      default: () => (
-                        <NBaseIcon clsPrefix={mergedClsPrefix}>
-                          {{
-                            default: () => <RemoveIcon />
-                          }}
-                        </NBaseIcon>
-                      )
-                    }}
-                  </NButton>,
-                  <NButton
-                    text
-                    disabled={!this.addable || this.disabled}
-                    focusable={false}
-                    builtinThemeOverrides={this.buttonThemeOverrides}
-                    onClick={this.handleAddClick}
-                    ref="addButtonInstRef"
-                  >
-                    {{
-                      default: () => (
-                        <NBaseIcon clsPrefix={mergedClsPrefix}>
-                          {{
-                            default: () => <AddIcon />
-                          }}
-                        </NBaseIcon>
-                      )
-                    }}
-                  </NButton>
-                ]
-              }
-            : null}
+          {{
+            prefix: () =>
+              this.showButton && this.buttonPlacement === 'both'
+                ? [
+                    renderMinusButton(),
+                    resolveWrappedSlot($slots.prefix, (children) => {
+                      if (children) {
+                        return (
+                          <span
+                            class={`${mergedClsPrefix}-input-number-prefix`}
+                          >
+                            {children}
+                          </span>
+                        )
+                      }
+                      return null
+                    })
+                  ]
+                : $slots.prefix?.(),
+            suffix: () =>
+              this.showButton
+                ? [
+                    resolveWrappedSlot($slots.suffix, (children) => {
+                      if (children) {
+                        return (
+                          <span
+                            class={`${mergedClsPrefix}-input-number-suffix`}
+                          >
+                            {children}
+                          </span>
+                        )
+                      }
+                      return null
+                    }),
+                    this.buttonPlacement === 'right'
+                      ? renderMinusButton()
+                      : null,
+                    renderAddButton()
+                  ]
+                : $slots.suffix?.()
+          }}
         </NInput>
       </div>
     )

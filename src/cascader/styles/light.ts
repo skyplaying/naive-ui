@@ -1,12 +1,13 @@
-import { internalSelectionLight } from '../../_internal/selection/styles'
-import { internalSelectMenuLight } from '../../_internal/select-menu/styles'
-import { scrollbarLight } from '../../scrollbar/styles'
-import { checkboxLight } from '../../checkbox/styles'
-import { commonLight } from '../../_styles/common'
 import type { ThemeCommonVars } from '../../_styles/common'
+import { scrollbarLight } from '../../_internal/scrollbar/styles'
+import { internalSelectMenuLight } from '../../_internal/select-menu/styles'
+import { internalSelectionLight } from '../../_internal/selection/styles'
 import { createTheme } from '../../_mixins'
+import { commonLight } from '../../_styles/common'
+import { checkboxLight } from '../../checkbox/styles'
+import { emptyLight } from '../../empty/styles'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     borderRadius,
     boxShadow2,
@@ -25,7 +26,7 @@ export const self = (vars: ThemeCommonVars) => {
     menuColor: popoverColor,
     menuBoxShadow: boxShadow2,
     menuDividerColor: dividerColor,
-    menuHeight: 'calc(var(--option-height) * 6.6)',
+    menuHeight: 'calc(var(--n-option-height) * 6.6)',
     optionArrowColor: textColor3,
     optionHeight: heightMedium,
     optionFontSize: fontSizeMedium,
@@ -34,7 +35,8 @@ export const self = (vars: ThemeCommonVars) => {
     optionTextColorActive: primaryColor,
     optionTextColorDisabled: textColorDisabled,
     optionCheckMarkColor: primaryColor,
-    loadingColor: primaryColor
+    loadingColor: primaryColor,
+    columnWidth: '180px'
   }
 }
 
@@ -47,7 +49,8 @@ const cascaderLight = createTheme({
     InternalSelectMenu: internalSelectMenuLight,
     InternalSelection: internalSelectionLight,
     Scrollbar: scrollbarLight,
-    Checkbox: checkboxLight
+    Checkbox: checkboxLight,
+    Empty: emptyLight
   },
   self
 })

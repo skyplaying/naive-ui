@@ -1,25 +1,27 @@
+import type { ThemeProps } from '../../_mixins'
+import type { ExtractPublicPropTypes } from '../../_utils'
+import type { LoadingBarTheme } from '../styles'
+import { useIsMounted } from 'vooks'
 import {
+  type CSSProperties,
+  defineComponent,
+  type ExtractPropTypes,
   Fragment,
   h,
-  ref,
-  Teleport,
-  defineComponent,
-  provide,
   nextTick,
-  PropType,
-  ExtractPropTypes,
-  InjectionKey,
-  renderSlot,
-  Ref
+  type PropType,
+  provide,
+  ref,
+  Teleport
 } from 'vue'
-import { useIsMounted } from 'vooks'
 import { useConfig, useTheme } from '../../_mixins'
-import type { ThemeProps } from '../../_mixins'
+import {
+  loadingBarApiInjectionKey,
+  loadingBarProviderInjectionKey
+} from './context'
 import NLoadingBar from './LoadingBar'
-import type { LoadingBarTheme } from '../styles'
-import type { ExtractPublicPropTypes } from '../../_utils'
 
-interface LoadingBarInst {
+export interface LoadingBarInst {
   start: () => void
   error: () => void
   finish: () => void
@@ -28,60 +30,62 @@ interface LoadingBarInst {
 export type LoadingBarProviderInst = LoadingBarInst
 export type LoadingBarApiInjection = LoadingBarInst
 
-const loadingBarProps = {
+export const loadingBarProviderProps = {
   ...(useTheme.props as ThemeProps<LoadingBarTheme>),
   to: {
-    type: [String, Object] as PropType<string | HTMLElement>,
+    type: [String, Object, Boolean] as PropType<string | HTMLElement | false>,
     default: undefined
+  },
+  containerClass: String,
+  containerStyle: [String, Object] as PropType<string | CSSProperties>,
+  loadingBarStyle: {
+    type: Object as PropType<{
+      loading?: string | CSSProperties
+      error?: string | CSSProperties
+    }>
   }
 }
 
 export type LoadingBarProviderProps = ExtractPublicPropTypes<
-  typeof loadingBarProps
+  typeof loadingBarProviderProps
 >
 
 export type LoadingBarProviderSetupProps = ExtractPropTypes<
-  typeof loadingBarProps
+  typeof loadingBarProviderProps
 >
-
-export const loadingBarProviderInjectionKey: InjectionKey<{
-  props: LoadingBarProviderSetupProps
-  mergedClsPrefixRef: Ref<string>
-}> = Symbol('loadingBar')
-
-export const loadingBarApiInjectionKey: InjectionKey<LoadingBarApiInjection> = Symbol(
-  'loadingBarApi'
-)
 
 export default defineComponent({
   name: 'LoadingBarProvider',
-  props: loadingBarProps,
-  setup (props) {
+  props: loadingBarProviderProps,
+  setup(props) {
     const isMountedRef = useIsMounted()
     const loadingBarRef = ref<LoadingBarInst | null>(null)
     const methods: LoadingBarProviderInst = {
-      start () {
+      start() {
         if (isMountedRef.value) {
           loadingBarRef.value?.start()
-        } else {
+        }
+        else {
           void nextTick(() => {
             loadingBarRef.value?.start()
           })
         }
       },
-      error () {
+      error() {
         if (isMountedRef.value) {
           loadingBarRef.value?.error()
-        } else {
+        }
+        else {
           void nextTick(() => {
             loadingBarRef.value?.error()
           })
         }
       },
-      finish () {
+      finish() {
         if (isMountedRef.value) {
           loadingBarRef.value?.finish()
-        } else {
+        }
+        else {
           void nextTick(() => {
             loadingBarRef.value?.finish()
           })
@@ -98,13 +102,17 @@ export default defineComponent({
       loadingBarRef
     })
   },
-  render () {
+  render() {
     return (
       <>
-        <Teleport to={this.to ?? 'body'}>
-          <NLoadingBar ref="loadingBarRef" />
+        <Teleport disabled={this.to === false} to={this.to || 'body'}>
+          <NLoadingBar
+            ref="loadingBarRef"
+            containerStyle={this.containerStyle}
+            containerClass={this.containerClass}
+          />
         </Teleport>
-        {renderSlot(this.$slots, 'default')}
+        {this.$slots.default?.()}
       </>
     )
   }

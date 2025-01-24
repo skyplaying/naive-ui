@@ -1,10 +1,18 @@
-import { h, computed, inject, defineComponent, PropType, Transition } from 'vue'
-import { useMemo } from 'vooks'
-import { NCheckbox } from '../../checkbox'
-import { NBaseLoading, NBaseIcon } from '../../_internal'
-import { ChevronRightIcon, CheckmarkIcon } from '../../_internal/icons'
-import { cascaderInjectionKey, TmNode } from './interface'
 import { happensIn } from 'seemly'
+import { useMemo } from 'vooks'
+import {
+  computed,
+  defineComponent,
+  h,
+  inject,
+  type PropType,
+  Transition,
+  type VNode
+} from 'vue'
+import { NBaseIcon, NBaseLoading } from '../../_internal'
+import { CheckmarkIcon, ChevronRightIcon } from '../../_internal/icons'
+import { NCheckbox } from '../../checkbox'
+import { cascaderInjectionKey, type TmNode } from './interface'
 
 export default defineComponent({
   name: 'NCascaderOption',
@@ -14,7 +22,7 @@ export default defineComponent({
       required: true
     }
   },
-  setup (props) {
+  setup(props) {
     const {
       expandTriggerRef,
       remoteRef,
@@ -26,20 +34,24 @@ export default defineComponent({
       keyboardKeyRef,
       loadingKeySetRef,
       cascadeRef,
-      leafOnlyRef,
+      mergedCheckStrategyRef,
       onLoadRef,
       mergedClsPrefixRef,
       mergedThemeRef,
+      labelFieldRef,
+      showCheckboxRef,
+      renderPrefixRef,
+      renderSuffixRef,
       updateHoverKey,
       updateKeyboardKey,
       addLoadingKey,
       deleteLoadingKey,
       closeMenu,
       doCheck,
-      doUncheck
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      doUncheck,
+      renderLabelRef
     } = inject(cascaderInjectionKey)!
-    const valueRef = computed(() => props.tmNode.rawNode.value)
+    const valueRef = computed(() => props.tmNode.key)
     const useHoverTriggerRef = computed(() => {
       const { value: expandTrigger } = expandTriggerRef
       const { value: remote } = remoteRef
@@ -59,11 +71,13 @@ export default defineComponent({
     })
     const checkedRef = useMemo(() => {
       const { value: multiple } = multipleRef
-      if (!multiple) return mergedValueRef.value === valueRef.value
+      if (!multiple)
+        return mergedValueRef.value === valueRef.value
       return checkedKeysRef.value.includes(valueRef.value)
     })
     const indeterminateRef = useMemo(() => {
-      if (!multipleRef.value) return false
+      if (!multipleRef.value)
+        return false
       return indeterminateKeysRef.value.includes(valueRef.value)
     })
     const hoverPendingRef = useMemo(() => {
@@ -71,7 +85,8 @@ export default defineComponent({
     })
     const keyboardPendingRef = useMemo(() => {
       const { value: keyboardKey } = keyboardKeyRef
-      if (keyboardKey === null) return false
+      if (keyboardKey === null)
+        return false
       return keyboardKey === valueRef.value
     })
     const isLoadingRef = useMemo(() => {
@@ -80,19 +95,17 @@ export default defineComponent({
       }
       return false
     })
-    const showCheckboxRef = computed(() => {
-      if (multipleRef.value && cascadeRef.value) return true
-      if (!leafOnlyRef.value) return true
-    })
-    const rawNodeRef = computed(() => props.tmNode.rawNode)
     const isLeafRef = computed(() => props.tmNode.isLeaf)
     const disabledRef = computed(() => props.tmNode.disabled)
-    const labelRef = computed(() => props.tmNode.rawNode.label)
+    const labelRef = computed(
+      () => (props.tmNode.rawNode as any)[labelFieldRef.value]
+    )
     const isShallowLoadedRef = computed(() => {
       return props.tmNode.shallowLoaded
     })
-    function handleClick (e: MouseEvent): void {
-      if (disabledRef.value) return
+    function handleClick(e: MouseEvent): void {
+      if (disabledRef.value)
+        return
       const { value: remote } = remoteRef
       const { value: loadingKeySet } = loadingKeySetRef
       const { value: onLoad } = onLoadRef
@@ -102,7 +115,7 @@ export default defineComponent({
       if (!happensIn(e, 'checkbox')) {
         if (remote && !isShallowLoaded && !loadingKeySet.has(value) && onLoad) {
           addLoadingKey(value)
-          onLoad(rawNodeRef.value)
+          onLoad(props.tmNode.rawNode)
             .then(() => {
               deleteLoadingKey(value)
             })
@@ -117,36 +130,41 @@ export default defineComponent({
         toggleCheckbox()
       }
     }
-    function handleMouseEnter (): void {
-      if (!useHoverTriggerRef.value || disabledRef.value) return
+    function handleMouseEnter(): void {
+      if (!useHoverTriggerRef.value || disabledRef.value)
+        return
       const { value } = valueRef
       updateHoverKey(value)
       updateKeyboardKey(value)
     }
-    function handleMouseMove (): void {
-      if (!useHoverTriggerRef.value) return
+    function handleMouseMove(): void {
+      if (!useHoverTriggerRef.value)
+        return
       handleMouseEnter()
     }
-    function handleCheckboxUpdateValue (): void {
+    function handleCheckboxUpdateValue(): void {
       const { value: isLeaf } = isLeafRef
-      if (!isLeaf) toggleCheckbox()
+      if (!isLeaf)
+        toggleCheckbox()
     }
-    function toggleCheckbox (): void {
+    function toggleCheckbox(): void {
       const { value: multiple } = multipleRef
       const { value } = valueRef
       if (multiple) {
         if (indeterminateRef.value || checkedRef.value) {
           doUncheck(value)
-        } else {
+        }
+        else {
           doCheck(value)
         }
-      } else {
+      }
+      else {
         doCheck(value)
         closeMenu(true)
       }
     }
     return {
-      leafOnly: leafOnlyRef,
+      checkStrategy: mergedCheckStrategyRef,
       multiple: multipleRef,
       cascade: cascadeRef,
       checked: checkedRef,
@@ -163,69 +181,74 @@ export default defineComponent({
       handleClick,
       handleCheckboxUpdateValue,
       mergedHandleMouseEnter: mergedHandleMouseEnterRef,
-      mergedHandleMouseMove: mergedHandleMouseMoveRef
+      mergedHandleMouseMove: mergedHandleMouseMoveRef,
+      renderLabel: renderLabelRef,
+      renderPrefix: renderPrefixRef,
+      renderSuffix: renderSuffixRef
     }
   },
-  render () {
-    const { mergedClsPrefix } = this
-    return (
-      <div
-        class={[
-          `${mergedClsPrefix}-cascader-option`,
-          {
-            [`${mergedClsPrefix}-cascader-option--pending`]:
-              this.keyboardPending || this.hoverPending,
-            [`${mergedClsPrefix}-cascader-option--disabled`]: this.disabled,
-            [`${mergedClsPrefix}-cascader-option--show-prefix`]:
-              this.showCheckbox
-          }
-        ]}
-        onMouseenter={this.mergedHandleMouseEnter}
-        onMousemove={this.mergedHandleMouseMove}
-        onClick={this.handleClick}
-      >
-        {this.showCheckbox ? (
-          <div class={`${mergedClsPrefix}-cascader-option__prefix`}>
-            <NCheckbox
-              focusable={false}
-              data-checkbox
-              disabled={this.disabled}
-              checked={this.checked}
-              indeterminate={this.indeterminate}
-              theme={this.mergedTheme.peers.Checkbox}
-              themeOverrides={this.mergedTheme.peerOverrides.Checkbox}
-              onUpdateChecked={this.handleCheckboxUpdateValue}
-            />
-          </div>
-        ) : null}
-        <span class={`${mergedClsPrefix}-cascader-option__label`}>
-          {this.label}
-        </span>
-        <div class={`${mergedClsPrefix}-cascader-option__suffix`}>
-          <div class={`${mergedClsPrefix}-cascader-option-icon-placeholder`}>
-            {!this.isLeaf ? (
-              <NBaseLoading
-                clsPrefix={mergedClsPrefix}
-                scale={0.85}
-                strokeWidth={24}
-                show={this.isLoading}
-                class={`${mergedClsPrefix}-cascader-option-icon`}
-              >
-                {{
-                  default: () => (
-                    <NBaseIcon
-                      clsPrefix={mergedClsPrefix}
-                      key="arrow"
-                      class={`${mergedClsPrefix}-cascader-option-icon ${mergedClsPrefix}-cascader-option-icon--arrow`}
-                    >
-                      {{
-                        default: () => <ChevronRightIcon />
-                      }}
-                    </NBaseIcon>
-                  )
-                }}
-              </NBaseLoading>
-            ) : this.leafOnly && !(this.multiple && this.cascade) ? (
+  render() {
+    const {
+      mergedClsPrefix,
+      showCheckbox,
+      renderLabel,
+      renderPrefix,
+      renderSuffix
+    } = this
+
+    let prefixNode: VNode | null = null
+    if (showCheckbox || renderPrefix) {
+      const originalNode = this.showCheckbox ? (
+        <NCheckbox
+          focusable={false}
+          data-checkbox
+          disabled={this.disabled}
+          checked={this.checked}
+          indeterminate={this.indeterminate}
+          theme={this.mergedTheme.peers.Checkbox}
+          themeOverrides={this.mergedTheme.peerOverrides.Checkbox}
+          onUpdateChecked={this.handleCheckboxUpdateValue}
+        />
+      ) : null
+      prefixNode = (
+        <div class={`${mergedClsPrefix}-cascader-option__prefix`}>
+          {renderPrefix
+            ? renderPrefix({
+                option: this.tmNode.rawNode,
+                checked: this.checked,
+                node: originalNode
+              })
+            : originalNode}
+        </div>
+      )
+    }
+    let suffixNode: VNode | null = null
+    const originalSuffixChild = (
+      <div class={`${mergedClsPrefix}-cascader-option-icon-placeholder`}>
+        {!this.isLeaf ? (
+          <NBaseLoading
+            clsPrefix={mergedClsPrefix}
+            scale={0.85}
+            strokeWidth={24}
+            show={this.isLoading}
+            class={`${mergedClsPrefix}-cascader-option-icon`}
+          >
+            {{
+              default: () => (
+                <NBaseIcon
+                  clsPrefix={mergedClsPrefix}
+                  key="arrow"
+                  class={`${mergedClsPrefix}-cascader-option-icon ${mergedClsPrefix}-cascader-option-icon--arrow`}
+                >
+                  {{
+                    default: () => <ChevronRightIcon />
+                  }}
+                </NBaseIcon>
+              )
+            }}
+          </NBaseLoading>
+        ) : this.checkStrategy === 'child'
+          && !(this.multiple && this.cascade) ? (
               <Transition name="fade-in-scale-up-transition">
                 {{
                   default: () =>
@@ -240,8 +263,40 @@ export default defineComponent({
                 }}
               </Transition>
             ) : null}
-          </div>
-        </div>
+      </div>
+    )
+    suffixNode = (
+      <div class={`${mergedClsPrefix}-cascader-option__suffix`}>
+        {renderSuffix
+          ? renderSuffix({
+              option: this.tmNode.rawNode,
+              checked: this.checked,
+              node: originalSuffixChild
+            })
+          : originalSuffixChild}
+      </div>
+    )
+    return (
+      <div
+        class={[
+          `${mergedClsPrefix}-cascader-option`,
+          this.keyboardPending
+          || (this.hoverPending
+            && `${mergedClsPrefix}-cascader-option--pending`),
+          this.disabled && `${mergedClsPrefix}-cascader-option--disabled`,
+          this.showCheckbox && `${mergedClsPrefix}-cascader-option--show-prefix`
+        ]}
+        onMouseenter={this.mergedHandleMouseEnter}
+        onMousemove={this.mergedHandleMouseMove}
+        onClick={this.handleClick}
+      >
+        {prefixNode}
+        <span class={`${mergedClsPrefix}-cascader-option__label`}>
+          {renderLabel
+            ? renderLabel(this.tmNode.rawNode, this.checked)
+            : this.label}
+        </span>
+        {suffixNode}
       </div>
     )
   }

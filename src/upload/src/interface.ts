@@ -1,47 +1,44 @@
-import { Ref, InjectionKey } from 'vue'
+import type { CSSProperties, Ref, VNodeChild } from 'vue'
 import type { MergedTheme } from '../../_mixins'
+import type { ImageGroupProps } from '../../image'
 import type { UploadTheme } from '../styles'
+import type {
+  UploadCustomRequestOptions,
+  UploadFileInfo,
+  UploadOnDownload,
+  UploadOnFinish,
+  UploadOnRemove,
+  UploadSettledFileInfo
+} from './public-types'
+import { createInjectionKey } from '../../_utils'
 
-export interface FileInfo {
-  id: string
-  name: string
-  url: string | null
-  percentage: number
-  status: 'pending' | 'uploading' | 'finished' | 'removed' | 'error'
-  file: File | null
-}
+export type ShouldUseThumbnailUrl = (file: UploadSettledFileInfo) => boolean
 
-export type FuncOrRecordOrUndef =
-  | Record<string, string>
-  | (({ file }: { file: FileInfo }) => Record<string, string>)
+export type FuncOrRecordOrUndef<T = string> =
+  | Record<string, T>
+  | (({ file }: { file: UploadSettledFileInfo }) => Record<string, T>)
   | undefined
-
-export type OnChange = (data: {
-  file: FileInfo
-  fileList: FileInfo[]
-  event: ProgressEvent | Event | undefined
-}) => void
-export type OnFinish = ({ file }: { file: FileInfo }) => FileInfo | undefined
-export type OnRemove = (data: {
-  file: FileInfo
-  fileList: FileInfo[]
-}) => Promise<boolean> | boolean | any
-export type OnDownload = (file: FileInfo) => Promise<boolean> | boolean | any
 
 export interface UploadInternalInst {
   doChange: DoChange
-  XhrMap: Map<string, XMLHttpRequest>
-  onFinish?: OnFinish
+  xhrMap: Map<string, XMLHttpRequest>
+  isErrorState: ((xhr: XMLHttpRequest) => boolean) | undefined
+  onError: OnError | undefined
+  onFinish: UploadOnFinish | undefined
 }
 
 export type DoChange = (
-  fileAfterChange: FileInfo,
+  fileAfterChange: UploadSettledFileInfo,
   event?: ProgressEvent | Event,
   options?: {
     append?: boolean
     remove?: boolean
   }
 ) => void
+
+export type OnUpdateFileList = (fileList: UploadSettledFileInfo[]) => void
+
+export type RenderIcon = (file: UploadSettledFileInfo) => VNodeChild
 
 export interface UploadInjection {
   mergedClsPrefixRef: Ref<string>
@@ -50,16 +47,43 @@ export interface UploadInjection {
   showRemoveButtonRef: Ref<boolean>
   showDownloadButtonRef: Ref<boolean>
   showRetryButtonRef: Ref<boolean>
-  mergedFileListRef: Ref<FileInfo[]>
-  onRemoveRef: Ref<OnRemove | undefined>
-  onDownloadRef: Ref<OnDownload | undefined>
-  XhrMap: Map<string, XMLHttpRequest>
-  submit: (fileId?: string) => void
+  showTriggerRef: Ref<boolean>
+  mergedFileListRef: Ref<UploadSettledFileInfo[]>
+  onRemoveRef: Ref<UploadOnRemove | undefined>
+  onDownloadRef: Ref<UploadOnDownload | undefined>
+  xhrMap: Map<string, XMLHttpRequest>
+  showPreviewButtonRef: Ref<boolean>
+  onPreviewRef: Ref<OnPreview | undefined>
+  listTypeRef: Ref<ListType>
+  dragOverRef: Ref<boolean>
+  draggerInsideRef: { value: boolean }
+  fileListClassRef: Ref<string | undefined>
+  fileListStyleRef: Ref<string | CSSProperties | undefined>
+  mergedDisabledRef: Ref<boolean>
+  maxReachedRef: Ref<boolean>
+  abstractRef: Ref<boolean>
+  imageGroupPropsRef: Ref<ImageGroupProps | undefined>
+  cssVarsRef: undefined | Ref<CSSProperties>
+  themeClassRef: undefined | Ref<string>
+  mergedDirectoryDndRef: Ref<boolean>
+  acceptRef: Ref<string | undefined>
+  triggerClassRef: Ref<string | undefined>
+  triggerStyleRef: Ref<CSSProperties | string | undefined>
   doChange: DoChange
+  onRender: undefined | (() => void)
+  submit: (fileId?: string) => void
+  onRetryRef: Ref<undefined | OnRetry>
+  shouldUseThumbnailUrlRef: Ref<ShouldUseThumbnailUrl>
+  getFileThumbnailUrlResolver: (
+    file: UploadSettledFileInfo
+  ) => Promise<string> | string
+  renderIconRef: Ref<RenderIcon | undefined>
+  handleFileAddition: (files: FileAndEntry[] | null, e?: Event) => void
+  openOpenFileDialog: () => void
 }
 
-export const uploadInjectionKey: InjectionKey<UploadInjection> =
-  Symbol('upload')
+export const uploadInjectionKey
+  = createInjectionKey<UploadInjection>('n-upload')
 
 export interface XhrHandlers {
   handleXHRLoad: (e: ProgressEvent) => void
@@ -68,6 +92,51 @@ export interface XhrHandlers {
   handleXHRError: (e: ProgressEvent) => void
 }
 
-export interface UploadInst {
-  submit: () => void
+export type OnBeforeUpload = (data: {
+  file: UploadSettledFileInfo
+  fileList: UploadSettledFileInfo[]
+}) => Promise<boolean | void> | boolean | void
+
+export type ListType = 'text' | 'image' | 'image-card'
+
+export type OnPreview = (
+  file: UploadSettledFileInfo,
+  detail: {
+    event: MouseEvent
+  }
+) => void
+
+export type CreateThumbnailUrl = (
+  file: File | null,
+  fileInfo: UploadSettledFileInfo
+) => Promise<string> | string | undefined
+
+export type CustomRequest = (options: UploadCustomRequestOptions) => void
+
+export type OnError = ({
+  file,
+  event
+}: {
+  file: UploadSettledFileInfo
+  event?: ProgressEvent
+}) => UploadFileInfo | undefined | void
+
+export type OnRetry = ({
+  file
+}: {
+  file: UploadSettledFileInfo
+}) => Promise<boolean | void> | boolean | void
+
+export interface FileAndEntry {
+  file: File
+  entry: FileSystemFileEntry | null
+  source: 'dnd' | 'input'
+}
+
+export interface UploadTriggerDefaultSlotOptions {
+  handleClick: () => void
+  handleDragOver: (e: DragEvent) => void
+  handleDragEnter: (e: DragEvent) => void
+  handleDragLeave: (e: DragEvent) => void
+  handleDrop: (e: DragEvent) => void
 }

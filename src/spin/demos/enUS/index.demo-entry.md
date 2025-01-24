@@ -1,25 +1,37 @@
 # Spin
 
-It can be called loading, but why it's called loading? Because there is another internal component with less props called loading.
+It could've been called `loading`, but why is it called `spin`? Because there is another internal component with less props already named `loading`.
 
 ## Demos
 
 ```demo
-basic
-wrap
+basic.vue
+wrap.vue
+description.vue
+customize-icon.vue
+delay.vue
 ```
 
-## Props
+## API
 
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| size | `'small' \| 'medium' \| 'large' \| number` | `'medium'` |  |
-| show | `boolean` | `true` | If spin is active. |
-| stroke-width | `number` | `undefined` | Relative width of spin's stroke, you can assume the outer radius of spin is 100. |
+### Spin Props
+
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| content-class | `string` | `undefined` | Content Class of the spin. | 2.36.0 |
+| content-style | `string \| Object` | `undefined` | Content style of the spin. | 2.36.0 |
+| description | `string` | `undefined` | Description of the spin. |
+| rotate | `boolean` | `true` | Specify whether icon rotates, only working for custom icon. |
+| size | `'small' \| 'medium' \| 'large' \| number` | `'medium'` | Size of the spin. |
+| show | `boolean` | `true` | Specify whether spin is active when spin has content inside. It won't work if you just use spin itself. |
+| stroke-width | `number` | `undefined` | Relative width of spin's stroke, assuming the outer radius of spin is 100. |
 | stroke | `string` | `undefined` | Color of the spin. |
+| delay | `number` | `undefined` | Specifies a delay in milliseconds for loading state (prevent flush). |
 
-## Slots
+### Spin Slots
 
-| Name    | Parameters | Description                        |
-| ------- | ---------- | ---------------------------------- |
-| default | `()`       | If set, spin will wrap the content |
+| Name        | Parameters | Description                         |
+| ----------- | ---------- | ----------------------------------- |
+| default     | `()`       | If set, spin will wrap the content. |
+| description | `()`       | Description of the spin.            |
+| icon        | `()`       | Customize the spin icon.            |

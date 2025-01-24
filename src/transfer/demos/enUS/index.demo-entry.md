@@ -1,55 +1,51 @@
 # Transfer
 
-<!--single-column-->
+A more efficient transfer.
 
-Left, right, left, right... As a boring guy, I can play it all day.
+If you want to use original transfer, please refer to [Legacy Transfer](legacy-transfer). Please note that the legacy transfer will be removed in the next major version. It's not recommended to to use it.
 
 ## Demos
 
 ```demo
-basic
-large-data
-size
-filterable
+basic.vue
+large-data.vue
+filterable.vue
+render-label.vue
+render-source-list.vue
 ```
 
-## Props
+## API
 
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| default-value | `Array<string \| number> \| null` | `null` |  |
-| disabled | `boolean` | `true` |  |
-| filterable | `boolean` | `false` |  |
-| filter | `(pattern: string, option: TransferOption, from: 'source' \| 'target') => boolean` | A basic label string match function |  |
-| options | `Array<TransferOption>` | `[]` |  |
-| size | `'small' \| 'medium' \| 'large'` | `'medium'` |  |
-| source-filter-placeholder | `string` | `undefined` |  |
-| source-title | `string` | `'Source'` |  |
-| target-filter-placeholder | `string` | `undefined` |  |
-| target-title | `string` | `'Target'` |  |
-| value | `Array<string \| number> \| null` | `undefined` |  |
-| on-update:value | `(value: Array<string \| number>) => void` | `undefined` |  |
-| virtual-scroll | `boolean` | `false` | If use virtual scroll on transfer. If set to `true` it can handles large data (and turn transfer animation off) |
+### Transfer Props
 
-### TransferOption Type
+| Name | Type | Default | Description | Version |
+| --- | --- | --- | --- | --- |
+| clear-text | `string` | `undefined` | Text of clear button. | 2.35.0 |
+| default-value | `Array<string \| number> \| null` | `null` | Default value. | 2.32.0 |
+| disabled | `boolean` | `true` | Disabled state. | 2.32.0 |
+| filter | `(pattern: string, option: TransferOption, from: 'source' \| 'target') => boolean` | A basic label string match function. | 2.32.0, `from` 2.32.2 |
+| options | `TransferOption[]` | `[]` | For configuration options, see the TransferOption Type below. | 2.32.0 |
+| render-source-label | `(props: { option: TransferOption }) => VNodeChild` | `undefined` | Customize source label rendering. | 2.32.0 |
+| render-target-label | `(props: { option: TransferOption }) => VNodeChild` | `undefined` | Customize target label rendering. | 2.32.0 |
+| render-source-list | `(props: { onCheck: (checkedValueList: Array<string \| number>) => void, checkedOptions: TransferOption[], pattern: string }) => VNodeChild` | `undefined` | Customize source list rendering. | 2.32.0 |
+| render-target-list | `(props: { onCheck: (checkedValueList: Array<string \| number>) => void, checkedOptions: TransferOption[], pattern: string }) => VNodeChild` | `undefined` | Customize target list rendering. | 2.33.4 |
+| select-all-text | `string` | `undefined` | Text of select all button. | 2.35.0 |
+| show-selected | `boolean` | `true` | Whether to show selected options in the source list. | 2.34.0 |
+| size | `'small' \| 'medium' \| 'large'` | `'medium'` | Size. | 2.32.0 |
+| source-filterable | `boolean` | `false` | The source filterable state. | 2.32.2 |
+| source-filter-placeholder | `string` | `undefined` | Placeholder for the source items search box. | 2.32.0 |
+| source-title | `string \| (() => VNodeChild)` | `undefined` | Source items title. | 2.32.0, Render function since 2.40.0 |
+| target-filterable | `boolean` | `false` | The target filterable state. | 2.32.2 |
+| target-filter-placeholder | `string` | `undefined` | Placeholder for the target items search box. | 2.32.0 |
+| target-title | `string \| (() => VNodeChild)` | `undefined` | Target items title. | 2.32.0, Render function since 2.40.0 |
+| value | `Array<string \| number> \| null` | `undefined` | Value when being set manually. | 2.32.0 |
+| on-update:value | `(value: Array<string \| number>) => void` | `undefined` | Callback when the value changes. | 2.32.0 |
+| virtual-scroll | `boolean` | `false` | Enable virtual scrolling. | 2.32.0 |
 
-| Property | Type | Description |
-| --- | --- | --- |
-| label | `string` |  |
-| value | `string \| number` | value of an option, should be unique in options |
-| disabled | `boolean` |  |
+#### TransferOption Type
 
-## Events
-
-| Name   | Parameters                  | Description |
-| ------ | --------------------------- | ----------- |
-| change | `(Array<string \| number>)` |             |
-
-<!-- ## Notes
-When I heard from my colleague he's going to put more than a thousand items into the transfer, I was astonished. My poor imagination can't come up with a scene that must use a transfer with thousands of items. But I must admit, it's my mind that always not considerate enough.
-
-Months earlier, I have built a interesting animation in transfer but it will cause reflow on many DOM elements. At that time, I hadn't think of people would insert so much data in it. Although I never compromise on styles, it's hard to surpass the limit of browser and hardware. It sounds like a kind of philosophy problem to build a car as comfort as a Rolls Royce and as fast as a Ferrari (or Porsche, etc) which is nearly impossible.
-
-(Don't tell me the Bentley Continental GT, I don't like the car's appearance.)
-
-Style can't be compromised on. However, the problem need to be solved. So finally I add a boost trigger on transfer to deal with large data (by the way turn off the animation). -->
+| Property | Type               | Description                    |
+| -------- | ------------------ | ------------------------------ |
+| label    | `string`           | The option's label to display. |
+| value    | `string \| number` | The option's unique value.     |
+| disabled | `boolean`          | The option's disabled state.   |

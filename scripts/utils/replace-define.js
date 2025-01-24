@@ -1,4 +1,4 @@
-const fs = require('fs').promises
+const fs = require('node:fs').promises
 const { walk } = require('.')
 
 exports.replaceDefine = async (dirs, defines) => {
@@ -9,14 +9,16 @@ exports.replaceDefine = async (dirs, defines) => {
   })
   for (const dir of dirs) {
     for await (const p of walk(dir)) {
-      const code = await fs.readFile(p, 'utf-8')
+      if (p.endsWith('.vue'))
+        continue
+      let code = await fs.readFile(p, 'utf-8')
       for (const key of defineKeys) {
         const pattern = patterns[key]
         if (pattern.test(code)) {
-          const outCode = code.replace(pattern, defines[key])
-          await fs.writeFile(p, outCode)
+          code = code.replace(pattern, defines[key])
         }
       }
+      await fs.writeFile(p, code)
     }
   }
 }

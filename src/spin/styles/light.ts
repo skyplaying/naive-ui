@@ -1,8 +1,8 @@
-import { Theme } from '../../_mixins'
-import { commonLight } from '../../_styles/common'
+import type { Theme } from '../../_mixins'
 import type { ThemeCommonVars } from '../../_styles/common'
+import { commonLight } from '../../_styles/common'
 
-export const self = (vars: ThemeCommonVars) => {
+export function self(vars: ThemeCommonVars) {
   const {
     opacityDisabled,
     heightTiny,
@@ -10,9 +10,12 @@ export const self = (vars: ThemeCommonVars) => {
     heightMedium,
     heightLarge,
     heightHuge,
-    primaryColor
+    primaryColor,
+    fontSize
   } = vars
   return {
+    fontSize,
+    textColor: primaryColor,
     sizeTiny: heightTiny,
     sizeSmall: heightSmall,
     sizeMedium: heightMedium,

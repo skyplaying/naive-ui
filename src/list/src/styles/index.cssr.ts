@@ -1,92 +1,129 @@
-import { cB, c, cE, cM, insideModal, insidePopover } from '../../../_utils/cssr'
+import { c, cB, cE, cM, insideModal, insidePopover } from '../../../_utils/cssr'
 
 // vars:
-// --font-size
-// --bezier
-// --text-color
-// --color
-// --border-radius
-// --border-color
-// --border-color-modal
-// --border-color-popover
-// --color-modal
-// --color-popover
+// --n-font-size
+// --n-bezier
+// --n-text-color
+// --n-color
+// --n-color-hover
+// --n-border-radius
+// --n-border-color
+// --n-border-color-modal
+// --n-border-color-popover
+// --n-color-modal
+// --n-color-popover
+// --n-color-hover-modal
+// --n-color-hover-popover
 export default c([
   cB('list', `
-    --merged-border-color: var(--border-color);
-    --merged-color: var(--color)
-    font-size: var(--font-size);
+    --n-merged-border-color: var(--n-border-color);
+    --n-merged-color: var(--n-color);
+    --n-merged-color-hover: var(--n-color-hover);
+    margin: 0;
+    font-size: var(--n-font-size);
     transition:
-      background-color .3s var(--bezier),
-      color .3s var(--bezier),
-      border-color .3s var(--bezier);
+      background-color .3s var(--n-bezier),
+      color .3s var(--n-bezier),
+      border-color .3s var(--n-bezier);
     padding: 0;
     list-style-type: none;
-    color: var(--text-color);
-    background-color: var(--merged-color);
+    color: var(--n-text-color);
+    background-color: var(--n-merged-color);
   `, [
+    cM('show-divider', [
+      cB('list-item', [
+        c('&:not(:last-child)', [
+          cE('divider', `
+            background-color: var(--n-merged-border-color);
+          `)
+        ])
+      ])
+    ]),
+    cM('clickable', [
+      cB('list-item', `
+        cursor: pointer;
+      `)
+    ]),
     cM('bordered', `
-      border-radius: var(--border-radius);
-      border: 1px solid var(--merged-border-color);
-    `, [
+      border: 1px solid var(--n-merged-border-color);
+      border-radius: var(--n-border-radius);
+    `),
+    cM('hoverable', [
+      cB('list-item', `
+        border-radius: var(--n-border-radius);
+      `, [
+        c('&:hover', `
+          background-color: var(--n-merged-color-hover);
+        `, [
+          cE('divider', `
+            background-color: transparent;
+          `)
+        ])
+      ])
+    ]),
+    cM('bordered, hoverable', [
       cB('list-item', `
         padding: 12px 20px;
-      `, [
-        c('&:not(:last-child)', `
-          border-bottom: 1px solid var(--merged-border-color);
-        `)
-      ]),
+      `),
       cE('header, footer', `
         padding: 12px 20px;
-      `, [
-        c('&:not(:last-child)', `
-          border-bottom: 1px solid var(--merged-border-color);
-        `)
-      ])
+      `)
     ]),
     cE('header, footer', `
       padding: 12px 0;
       box-sizing: border-box;
-      transition: border-color .3s var(--bezier);
+      transition: border-color .3s var(--n-bezier);
     `, [
       c('&:not(:last-child)', `
-        border-bottom: 1px solid var(--merged-border-color);
+        border-bottom: 1px solid var(--n-merged-border-color);
       `)
     ]),
     cB('list-item', `
+      position: relative;
       padding: 12px 0;    
       box-sizing: border-box;
       display: flex;
       flex-wrap: nowrap;
       align-items: center;
-      transition: border-color .3s var(--bezier);
+      transition:
+        background-color .3s var(--n-bezier),
+        border-color .3s var(--n-bezier);
     `, [
       cE('prefix', `
         margin-right: 20px;
         flex: 0;
       `),
       cE('suffix', `
-          margin-left: 20px;
-          flex: 0;
-        `),
+        margin-left: 20px;
+        flex: 0;
+      `),
       cE('main', `
         flex: 1;
       `),
-      c('&:not(:last-child)', `
-        border-bottom: 1px solid var(--merged-border-color);
+      cE('divider', `
+        height: 1px;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: transparent;
+        transition: background-color .3s var(--n-bezier);
+        pointer-events: none;
       `)
     ])
   ]),
   insideModal(
     cB('list', `
-    --merged-color: var(--color-modal);
-      --merged-border-color: var(--border-color-modal);
+      --n-merged-color-hover: var(--n-color-hover-modal);
+      --n-merged-color: var(--n-color-modal);
+      --n-merged-border-color: var(--n-border-color-modal);
     `)
   ),
   insidePopover(
     cB('list', `
-      --merged-color: var(--color-popover);
-      --merged-border-color: var(--border-color-popover);
+      --n-merged-color-hover: var(--n-color-hover-popover);
+      --n-merged-color: var(--n-color-popover);
+      --n-merged-border-color: var(--n-border-color-popover);
     `)
   )
 ])

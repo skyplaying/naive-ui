@@ -1,4 +1,4 @@
-import { rgba, composite, scaleColor } from 'seemly'
+import { composite, rgba, scaleColor } from 'seemly'
 import commonVariables from './_common'
 
 const base = {
@@ -16,7 +16,7 @@ const base = {
   alpha4: '0.24', // disabled text, placeholder, icon
   alpha5: '0.18', // disabled placeholder
 
-  alphaClose: '0.52',
+  alphaClose: '0.6',
 
   alphaDisabled: '0.5',
   alphaDisabledInput: '0.02',
@@ -70,12 +70,11 @@ const base = {
 
 const baseBackgroundRgb = rgba(base.neutralBase)
 const baseInvertBackgroundRgb = rgba(base.neutralInvertBase)
-const overlayPrefix =
-  'rgba(' + baseInvertBackgroundRgb.slice(0, 3).join(', ') + ', '
-function overlay (alpha: string | number) {
-  return overlayPrefix + String(alpha) + ')'
+const overlayPrefix = `rgba(${baseInvertBackgroundRgb.slice(0, 3).join(', ')}, `
+function overlay(alpha: string | number) {
+  return `${overlayPrefix + String(alpha)})`
 }
-function neutral (alpha: string | number) {
+function neutral(alpha: string | number) {
   const overlayRgba = Array.from(baseInvertBackgroundRgb)
   overlayRgba[3] = Number(alpha)
   return composite(
@@ -119,7 +118,7 @@ const derived = {
   textColorBase: base.neutralTextBase,
   textColor1: 'rgb(31, 34, 37)',
   textColor2: 'rgb(51, 54, 57)',
-  textColor3: 'rgb(158, 164, 170)',
+  textColor3: 'rgb(118, 124, 130)',
   // textColor4: neutral(base.alpha4), // disabled, placeholder, icon
   // textColor5: neutral(base.alpha5),
 
@@ -141,10 +140,11 @@ const derived = {
   borderColor: 'rgb(224, 224, 230)',
 
   // close
-  closeColor: neutral(Number(base.alphaClose)),
-  closeColorHover: neutral(Number(base.alphaClose) * 1.25),
-  closeColorPressed: neutral(Number(base.alphaClose) * 0.8),
-  closeColorDisabled: neutral(base.alpha4),
+  closeIconColor: neutral(Number(base.alphaClose)),
+  closeIconColorHover: neutral(Number(base.alphaClose)),
+  closeIconColorPressed: neutral(Number(base.alphaClose)),
+  closeColorHover: 'rgba(0, 0, 0, .09)',
+  closeColorPressed: 'rgba(0, 0, 0, .13)',
 
   // clear
   clearColor: neutral(base.alpha4),
@@ -153,6 +153,9 @@ const derived = {
 
   scrollbarColor: overlay(base.alphaScrollbar),
   scrollbarColorHover: overlay(base.alphaScrollbarHover),
+  scrollbarWidth: '5px',
+  scrollbarHeight: '5px',
+  scrollbarBorderRadius: '5px',
 
   progressRailColor: neutral(base.alphaProgressRail),
   railColor: 'rgb(219, 219, 223)',
@@ -162,27 +165,33 @@ const derived = {
   cardColor: base.neutralCard,
   modalColor: base.neutralModal,
   bodyColor: base.neutralBody,
-  tagColor: 'rgb(250, 250, 252)',
+  tagColor: '#eee',
   avatarColor: neutral(base.alphaAvatar),
   invertedColor: 'rgb(0, 20, 40)',
 
   inputColor: neutral(base.alphaInput),
   codeColor: 'rgb(244, 244, 248)',
-  tabColor: 'rgb(250, 250, 252)',
+  tabColor: 'rgb(247, 247, 250)',
   actionColor: 'rgb(250, 250, 252)',
   tableHeaderColor: 'rgb(250, 250, 252)',
 
   hoverColor: 'rgb(243, 243, 245)',
   // use color with alpha since it can be nested with header filter & sorter effect
-  tableColorHover: 'rgba(0, 0, 100, 0.02)',
+  tableColorHover: 'rgba(0, 0, 100, 0.03)',
+  tableColorStriped: 'rgba(0, 0, 100, 0.02)',
   pressedColor: 'rgb(237, 237, 239)',
 
   opacityDisabled: base.alphaDisabled,
   inputColorDisabled: 'rgb(250, 250, 252)',
 
+  // secondary button color
+  // can also be used in tertiary button & quaternary button
+  buttonColor2: 'rgba(46, 51, 56, .05)',
+  buttonColor2Hover: 'rgba(46, 51, 56, .09)',
+  buttonColor2Pressed: 'rgba(46, 51, 56, .13)',
+
   boxShadow1:
     '0 1px 2px -2px rgba(0, 0, 0, .08), 0 3px 6px 0 rgba(0, 0, 0, .06), 0 5px 12px 4px rgba(0, 0, 0, .04)',
-
   boxShadow2:
     '0 3px 6px -4px rgba(0, 0, 0, .12), 0 6px 16px 0 rgba(0, 0, 0, .08), 0 9px 28px 8px rgba(0, 0, 0, .05)',
   boxShadow3:

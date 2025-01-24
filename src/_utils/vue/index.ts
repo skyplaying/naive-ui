@@ -1,11 +1,26 @@
+export { call } from './call'
+export type { MaybeArray } from './call'
+export { createDataKey } from './create-data-key'
+export { createInjectionKey } from './create-injection-key'
+export { createRefSetter } from './create-ref-setter'
+export { flatten } from './flatten'
+export {
+  getFirstSlotVNode,
+  getFirstSlotVNodeWithTypedProps
+} from './get-first-slot-vnode'
 export { getSlot } from './get-slot'
 export { getVNodeChildren } from './get-v-node-children'
+export { isNodeVShowFalse } from './is-node-v-show-false'
 export { keep } from './keep'
-export { omit } from './omit'
-export { flatten } from './flatten'
-export { call } from './call'
 export { keysOf } from './keysOf'
+export { mergeEventHandlers } from './merge-handlers'
+export { omit } from './omit'
 export { render } from './render'
-export { getFirstSlotVNode } from './get-first-slot-vnode'
-export { createDataKey } from './create-data-key'
-export type { MaybeArray } from './call'
+export {
+  isSlotEmpty,
+  resolveSlot,
+  resolveSlotWithTypedProps,
+  resolveWrappedSlot,
+  resolveWrappedSlotWithProps
+} from './resolve-slot'
+export { Wrapper } from './wrapper'

@@ -1,6 +1,11 @@
-import { h, defineComponent, PropType } from 'vue'
+import type { RenderExpandIcon, RowData } from '../interface'
+import { defineComponent, h, type PropType } from 'vue'
+import {
+  NBaseIcon,
+  NBaseLoading,
+  NIconSwitchTransition
+} from '../../../_internal'
 import { ChevronRightIcon } from '../../../_internal/icons'
-import { NBaseIcon } from '../../../_internal'
 
 export default defineComponent({
   name: 'DataTableExpandTrigger',
@@ -10,24 +15,59 @@ export default defineComponent({
       required: true
     },
     expanded: Boolean,
+    loading: Boolean,
     onClick: {
       type: Function as PropType<() => void>,
       required: true
+    },
+    renderExpandIcon: {
+      type: Function as PropType<RenderExpandIcon>
+    },
+    rowData: {
+      type: Object as PropType<RowData>,
+      required: true
     }
   },
-  render () {
+  render() {
+    const { clsPrefix } = this
     return (
-      <NBaseIcon clsPrefix={this.clsPrefix} onClick={this.onClick}>
-        {{
-          default: () => {
-            return (
-              <ChevronRightIcon
-                style={this.expanded ? 'transform: rotate(90deg);' : undefined}
-              />
-            )
-          }
+      <div
+        class={[
+          `${clsPrefix}-data-table-expand-trigger`,
+          this.expanded && `${clsPrefix}-data-table-expand-trigger--expanded`
+        ]}
+        onClick={this.onClick}
+        onMousedown={(e) => {
+          e.preventDefault()
         }}
-      </NBaseIcon>
+      >
+        <NIconSwitchTransition>
+          {{
+            default: () => {
+              return this.loading ? (
+                <NBaseLoading
+                  key="loading"
+                  clsPrefix={this.clsPrefix}
+                  radius={85}
+                  strokeWidth={15}
+                  scale={0.88}
+                />
+              ) : this.renderExpandIcon ? (
+                this.renderExpandIcon({
+                  expanded: this.expanded,
+                  rowData: this.rowData
+                })
+              ) : (
+                <NBaseIcon clsPrefix={clsPrefix} key="base-icon">
+                  {{
+                    default: () => <ChevronRightIcon />
+                  }}
+                </NBaseIcon>
+              )
+            }
+          }}
+        </NIconSwitchTransition>
+      </div>
     )
   }
 })

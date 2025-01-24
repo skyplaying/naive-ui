@@ -14,15 +14,15 @@
 ```
 
 ```js
-import { ref } from 'vue'
 import { darkTheme } from 'naive-ui'
+import { defineComponent, ref } from 'vue'
 
-export default {
-  setup () {
+export default defineComponent({
+  setup() {
     return {
       darkTheme,
       theme: ref(null)
     }
   }
-}
+})
 ```

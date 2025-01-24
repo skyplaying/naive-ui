@@ -1,5 +1,14 @@
-import { h, defineComponent, inject, ref, onMounted, watch, toRef } from 'vue'
-import { logInjectionKey } from './Log'
+import {
+  computed,
+  defineComponent,
+  h,
+  inject,
+  onMounted,
+  ref,
+  toRef,
+  watch
+} from 'vue'
+import { logInjectionKey } from './context'
 
 export default defineComponent({
   props: {
@@ -8,28 +17,25 @@ export default defineComponent({
       default: ''
     }
   },
-  setup (props) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const { trimRef, highlightRef, languageRef, mergedHljsRef } = inject(
-      logInjectionKey
-    )!
+  setup(props) {
+    const { trimRef, highlightRef, languageRef, mergedHljsRef }
+      = inject(logInjectionKey)!
     const selfRef = ref<HTMLElement | null>(null)
-    function setInnerHTML (): void {
-      const trimmedLine = trimRef.value ? (props.line || '').trim() : props.line
+    const maybeTrimmedLinesRef = computed(() => {
+      return trimRef.value ? props.line.trim() : props.line
+    })
+    function setInnerHTML(): void {
       if (selfRef.value) {
         selfRef.value.innerHTML = generateCodeHTML(
           languageRef.value,
-          trimmedLine,
-          false
+          maybeTrimmedLinesRef.value
         )
       }
     }
-    function generateCodeHTML (
+    function generateCodeHTML(
       language: string | undefined,
-      code: string,
-      trim: boolean
+      code: string
     ): string {
-      if (trim) code = code.trim()
       const { value: hljs } = mergedHljsRef
       if (hljs) {
         if (language && hljs.getLanguage(language)) {
@@ -50,11 +56,12 @@ export default defineComponent({
     })
     return {
       highlight: highlightRef,
-      selfRef
+      selfRef,
+      maybeTrimmedLines: maybeTrimmedLinesRef
     }
   },
-  render () {
-    const { highlight } = this
-    return <pre ref="selfRef">{highlight ? null : this.line}</pre>
+  render() {
+    const { highlight, maybeTrimmedLines } = this
+    return <pre ref="selfRef">{highlight ? null : maybeTrimmedLines}</pre>
   }
 })
